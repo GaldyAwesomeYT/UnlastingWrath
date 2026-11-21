@@ -2,7 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block", "Options" }
+local NAMES = { "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block", "Options", "Sheathe" }
 local folder
 
 if RunService:IsServer() then
@@ -27,5 +27,6 @@ return {
 	Ready = folder:WaitForChild("Ready"),     -- client -> server: true to queue, false to leave the queue
 	ReadyState = folder:WaitForChild("ReadyState"), -- server -> client: boolean, syncs the Ready button
 	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players when placed; {} when the match ends
+	Sheathe = folder:WaitForChild("Sheathe"), -- client -> server: boolean, true while the blade is sheathed (no hits, clashes or guard)
 	Options = folder:WaitForChild("Options"),  -- client -> server: (gameMode string, difficulty string), sent when Play is pressed
 }

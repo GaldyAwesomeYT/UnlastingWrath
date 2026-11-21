@@ -17,6 +17,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local Weapon = {}
 
@@ -31,6 +32,10 @@ local ARM_STEP = 0.25 -- arm length changes in steps of this many studs, so the 
 -- Guard state: `guarding` is the button; `guardBlend` eases 0 (cursor aim) to 1 (guard pose).
 local guarding = false
 local guardBlend = 0
+
+-- Sheathe state: `sheathed` is the toggle; `sheatheBlend` eases 0 (blade ready) to 1 (blade on the left hip).
+local sheathed = false
+local sheatheBlend = 0
 
 -- Virtual cursor: an offset in pixels from the screen center, kept inside a circle.
 local aimOffset = Vector2.zero
@@ -279,6 +284,16 @@ local function driveBlade(character, root)
 
 	local center, dir = bladeTarget(character, root)
 	if not center then return end
+
+	-- Sheathing: ease the blade from the ready pose to the left hip (pointing down and back).
+	if sheatheBlend > 0 then
+		local t = sheatheBlend * sheatheBlend * (3 - 2 * sheatheBlend) -- smoothstep, so it eases at both ends
+		local hipCenter = root.CFrame * Config.SheathePosition
+		local hipDir = root.CFrame:VectorToWorldSpace(Config.SheatheDirection.Unit)
+		center = center:Lerp(hipCenter, t)
+		local mixed = dir:Lerp(hipDir, t)
+		dir = mixed.Magnitude > 1e-3 and mixed.Unit or hipDir
+	end
 	position.Position = center
 	local up = if math.abs(dir.Y) > 0.99 then Vector3.zAxis else Vector3.yAxis
 	orientation.CFrame = CFrame.lookAt(center, center + dir, up)
@@ -318,6 +333,10 @@ local function driveCharacterBlade(dt)
 	local step = dt / Config.GuardBlendTime
 	local target = guarding and 1 or 0
 	guardBlend += math.clamp(target - guardBlend, -step, step)
+
+	-- Ease the blade to the hip and back.
+	local sheatheStep = dt / Config.SheatheTime
+	sheatheBlend += math.clamp((sheathed and 1 or 0) - sheatheBlend, -sheatheStep, sheatheStep)
 
 	-- While the cursor is free, the blade holds its last target (the guard pose still eases in if already held).
 	if Weapon.isFree() then return end
@@ -401,9 +420,21 @@ local function poseHands()
 		grip = root.CFrame * Config.WeaponGripTarget
 	end
 
-	local rightHand = poseArm(character, "Right", grip, look)
+	-- Sheathed: the hands ease down to hang at the sides (arms at rest length, pointing straight down).
+	local t = sheatheBlend * sheatheBlend * (3 - 2 * sheatheBlend)
+	local function restHand(side)
+		local shoulder, _, arm = shoulderOf(character, side)
+		if not shoulder then return nil end
+		return shoulder - Vector3.yAxis * (restArmLength(arm) - JOINT_DROP)
+	end
+	local function blended(target, side)
+		local rest = t > 0 and restHand(side)
+		return rest and target:Lerp(rest, t) or target
+	end
+
+	local rightHand = poseArm(character, "Right", blended(grip, "Right"), look)
 	if rightHand then
-		poseArm(character, "Left", rightHand + dir * Config.WeaponHandSpacing, look)
+		poseArm(character, "Left", blended(rightHand + dir * Config.WeaponHandSpacing, "Left"), look)
 	else
 		warnOnce("Right arm pose failed: no Torso 'Right Shoulder' motor or 'Right Arm' part found.")
 	end
@@ -467,7 +498,23 @@ end
 
 -- Guard button held or released. Guard can't be raised while the cursor is free.
 function Weapon.setGuard(held)
-	guarding = held == true and not Weapon.isFree()
+	guarding = held == true and not Weapon.isFree() and not sheathed
+end
+
+-- Sheathes the blade on the left hip, or draws it again. Returns true when the blade is now sheathed.
+-- The server is told so a sheathed blade can't hit, clash or guard. Not allowed while the cursor is free.
+function Weapon.toggleSheathe()
+	if Weapon.isFree() then return sheathed end
+	sheathed = not sheathed
+	if sheathed then
+		guarding = false
+	end
+	Remotes.Sheathe:FireServer(sheathed)
+	return sheathed
+end
+
+function Weapon.isSheathed()
+	return sheathed
 end
 
 -- menuOpenCheck: function returning true while the title menu is open (its buttons need the real mouse).
@@ -476,6 +523,9 @@ function Weapon.start(menuOpenCheck)
 	hud.Parent = player:WaitForChild("PlayerGui")
 
 	local function onCharacter(character)
+		-- A new character starts with the blade drawn (the server's state for it starts that way too).
+		sheathed = false
+		sheatheBlend = 0
 		disableDefaultAnimation(character)
 	end
 	if player.Character then

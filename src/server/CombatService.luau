@@ -29,6 +29,7 @@ local function getState(character)
 			lastDash = 0,
 			dashUntil = -math.huge,
 			guarding = false,
+			sheathed = false,    -- blade on the hip: it can't hit, clash or guard
 			hitAt = {},          -- [target character] = last time this blade hit it
 			clashAt = {},        -- [other character] = last time these blades clashed
 			prevRel = nil,       -- blade tip relative to the body last heartbeat (for swing speed)
@@ -233,7 +234,7 @@ local function checkSwings()
 	-- Pass 2: hits (blade touches a living target) and clashes (two blades touch).
 	for _, character in ipairs(swinging) do
 		local s = getState(character)
-		if not (RoundState.paused or now < s.stunnedUntil) then
+		if not (RoundState.paused or s.sheathed or now < s.stunnedUntil) then
 			-- A blade held still against someone doesn't hurt them; it has to be swung.
 			if s.speed >= Config.HitMinSpeed then
 				for _, target in ipairs(allFighters(character)) do
@@ -254,7 +255,7 @@ local function checkSwings()
 		for j = i + 1, #swinging do
 			local a, b = swinging[i], swinging[j]
 			local sa, sb = getState(a), getState(b)
-			if not (RoundState.paused or now < sa.stunnedUntil or now < sb.stunnedUntil) and canFight(a, b)
+			if not (RoundState.paused or sa.sheathed or sb.sheathed or now < sa.stunnedUntil or now < sb.stunnedUntil) and canFight(a, b)
 				and sa.speed >= Config.ClashMinSpeed and sb.speed >= Config.ClashMinSpeed
 				and (not sa.clashAt[b] or now - sa.clashAt[b] >= Config.ClashCooldown)
 				and segmentSegmentDistance(sa.seg.base, sa.seg.tip, sb.seg.base, sb.seg.tip) <= Config.ClashRadius then
@@ -272,7 +273,20 @@ RunService.Heartbeat:Connect(checkSwings)
 Remotes.Block.OnServerEvent:Connect(function(player, held)
 	local character = player.Character
 	if not character then return end
-	getState(character).guarding = (held == true)
+	local s = getState(character)
+	s.guarding = (held == true) and not s.sheathed
+end)
+
+-- Sheathe: the client reports whether the blade is on the hip. A sheathed blade can't hit, clash or
+-- guard, so sheathing also drops the guard.
+Remotes.Sheathe.OnServerEvent:Connect(function(player, sheathed)
+	local character = player.Character
+	if not character then return end
+	local s = getState(character)
+	s.sheathed = (sheathed == true)
+	if s.sheathed then
+		s.guarding = false
+	end
 end)
 
 -- Dash: the client moves its own character (see Main.client.luau). The server only checks

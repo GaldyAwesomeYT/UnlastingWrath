@@ -632,8 +632,14 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
 	if input.KeyCode == Enum.KeyCode[Config.DashKey] then
 		startDash()
+	elseif input.KeyCode == Enum.KeyCode[Config.SheatheKey] then
+		if Weapon.toggleSheathe() and guardHeld then
+			setGuard(false) -- sheathing drops the guard
+		end
 	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
-		setGuard(true)
+		if not Weapon.isSheathed() then
+			setGuard(true)
+		end
 	elseif input.KeyCode == Enum.KeyCode.Tab then
 		board.Visible = not board.Visible
 	end

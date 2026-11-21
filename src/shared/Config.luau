@@ -24,7 +24,11 @@ local Config = {
 		Torso = 1.0,
 		Limb = 0.5,
 	},
-	GuardKey = "F",               -- hold to guard (Enum.KeyCode name)
+	SheatheKey = "X",             -- press to sheathe the blade on the left hip; press again to draw it (Enum.KeyCode name)
+	SheatheTime = 0.35,           -- seconds the blade takes to travel between the hip and the ready pose
+	SheathePosition = Vector3.new(-1.1, -0.7, 0.2), -- where the sheathed blade's center sits, in the HumanoidRootPart's space (left hip)
+	SheatheDirection = Vector3.new(0, -0.6, 1),     -- which way the sheathed blade points, in the same space (tip down and back)
+	GuardKey = "F",              -- hold to guard (Enum.KeyCode name)
 	LookButton = "MouseButton2",  -- hold and move the mouse to look around (Enum.UserInputType name); the blade holds still
 	LookSensitivity = 0.003,      -- radians of camera turn per pixel of mouse movement while looking around
 	LookPitchLimit = 70,          -- degrees the camera can look up or down while looking around
