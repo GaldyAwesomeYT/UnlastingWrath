@@ -213,9 +213,9 @@ end
 -- Every frame (after the animator, so the arms aren't overwritten): right hand on the grip,
 -- left hand further along the handle toward the tip.
 local function poseHands()
-	local c = current
+	-- Runs whenever the character is alive, even if the blade isn't built, so the arms rest in front.
 	local character = player.Character
-	if not (c and character and c.character == character) then return end
+	if not character then return end
 
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
