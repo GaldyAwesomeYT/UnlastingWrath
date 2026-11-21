@@ -439,27 +439,49 @@ end
 -- True while the default animation is running (blade fully sheathed). The hand and leg posing steps aside.
 local animationActive = false
 
--- Puts the limbs back to their original sizes and joint offsets, so the default animation starts from
--- the standard R6 body (the arm posing stretched the arms and moved their joints).
+-- The standard R6 joints, taken from a blank R6 rig: each Torso motor's C0 and C1. The default animation
+-- is built for exactly these, so the limbs are put back to them when it takes over.
+local R6_REST = {
+	["Right Shoulder"] = {
+		C0 = CFrame.new(1, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+		C1 = CFrame.new(-0.5, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+	},
+	["Left Shoulder"] = {
+		C0 = CFrame.new(-1, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+		C1 = CFrame.new(0.5, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+	},
+	["Right Hip"] = {
+		C0 = CFrame.new(1, -1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+		C1 = CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0),
+	},
+	["Left Hip"] = {
+		C0 = CFrame.new(-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+		C1 = CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0),
+	},
+}
+local R6_ARM_SIZE = Vector3.new(1, 2, 1)
+
+-- Puts the limbs on the standard R6 joints and arm size, so the default animation moves a normal body
+-- (the arm posing stretched the arms and moved their joints). Only writes what differs, so it can run
+-- every frame while the default animation is active.
 local function restoreRestPose(character)
 	local torso = character:FindFirstChild("Torso")
 	if not torso then return end
-	for _, name in ipairs({ "Right Shoulder", "Left Shoulder", "Right Hip", "Left Hip" }) do
+	for name, rest in pairs(R6_REST) do
 		local motor = torso:FindFirstChild(name)
 		if motor then
-			if restC0[motor] then
-				motor.C0 = restC0[motor]
+			if motor.C0 ~= rest.C0 then
+				motor.C0 = rest.C0
 			end
-			if restC1[motor] then
-				motor.C1 = restC1[motor]
+			if motor.C1 ~= rest.C1 then
+				motor.C1 = rest.C1
 			end
-			motor.Transform = CFrame.new()
 		end
 	end
 	for _, side in ipairs({ "Right", "Left" }) do
 		local arm = character:FindFirstChild(side .. " Arm")
-		if arm and restArm[arm] then
-			arm.Size = Vector3.new(arm.Size.X, restArm[arm], arm.Size.Z)
+		if arm and arm.Size ~= R6_ARM_SIZE then
+			arm.Size = R6_ARM_SIZE
 		end
 	end
 end
@@ -476,9 +498,20 @@ local function poseHands()
 
 	-- Blade fully sheathed: the default animation takes over the whole body.
 	if Weapon.isDefaultMode() then
+		-- Reset the joints before the animation starts, and keep checking them while it runs.
+		restoreRestPose(character)
 		if not animationActive then
 			animationActive = true
-			restoreRestPose(character)
+			-- Clear any leftover pose from the arm posing, so the animation starts from nothing.
+			local torso = character:FindFirstChild("Torso")
+			if torso then
+				for name in pairs(R6_REST) do
+					local motor = torso:FindFirstChild(name)
+					if motor then
+						motor.Transform = CFrame.new()
+					end
+				end
+			end
 			setDefaultAnimation(character, true)
 		end
 		return
