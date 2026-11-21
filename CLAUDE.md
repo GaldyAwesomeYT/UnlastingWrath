@@ -11,21 +11,24 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 ## Layout
 - `default.project.json`: maps `src/server` → ServerScriptService/Server, `src/client` → StarterPlayerScripts/Client, `src/shared` → ReplicatedStorage/Shared.
 - `src/shared/Config.luau`: all tuning numbers. Change values here, not in logic.
-- `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round). Server creates them.
+- `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round, Scores, Dash). Server creates them.
 - `src/server/CombatService.luau`: server-authoritative attacks, parries, stuns, kill credit, and dummy AI.
-- `src/server/GameService.luau`: round loop (lobby countdown, first to KillsToWin, intermission).
-- `src/server/RoundState.luau`: shared "round active" flag.
+- `src/server/GameService.luau`: round loop (lobby countdown, first to KillsToWin, intermission), kill counts, post-kill reset countdown, and scores broadcast.
+- `src/server/RoundState.luau`: shared "round active" and "paused" flags.
 - `src/server/Main.server.luau`: builds the floor and training dummy, starts services.
-- `src/client/Main.client.luau`: input, cursor aiming, HUD (mode label, feedback, health bar, round status, parry flash).
+- `src/client/Main.client.luau`: input, cursor aiming, HUD (mode label, feedback, self health bar top-left, opponent health bars top-right, stun bar, round status, parry flash, scoreboard).
 
 ## Rules
 - Combat logic stays on the server. The client only sends intent (attack, parry) and displays results.
 - Player-vs-player combat is only allowed while `RoundState.active` is true. The training dummy always works.
-- Keep the two control modes working: Simple (click attacks nearest enemy in front) and Manual (character faces cursor, click swings at what's under it). Toggle with Tab.
+- Keep the two control modes working: Simple (click attacks nearest enemy in front) and Manual (character faces cursor, click swings at what's under it). Toggle with M. Tab toggles the scoreboard (moved off Tab so the two don't clash).
+- After every kill, combat pauses for `Config.KillResetCountdown` seconds, then all living players are healed to full. Kill counts live on the server; clients get them via the `Scores` remote.
 - Don't add sound IDs or assets you can't confirm are usable. `Config.ParrySoundId` stays empty until the user sets it.
 - Make small, focused changes and tell the user which files changed so they can copy them to `C:\Projects\RobloxGame` (or commit them locally).
 
 ## Current status
 - Working and tested in Studio: attacks, parries, stun, dummy AI, health bar, round countdown, kill counter, parry screen flash.
 - Stun timer (HUD bar under health, counts down the parry stun; server sends only the duration): written, not yet tested in Studio.
-- Next planned: balance tuning, lobby/spawn/map polish, scoreboard.
+- Scoreboard (Tab) with per-round kills, and post-kill reset countdown with full heal: written, not yet tested in Studio.
+- Dash (Shift, `Config.DashKey`): server moves the character for `DashDuration` and makes it untouchable (attacks show "DODGE!"). Opponent HP bars top-right: written, not yet tested in Studio.
+- Next planned: balance tuning, lobby/spawn/map polish.

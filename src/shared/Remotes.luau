@@ -2,7 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Attack", "Parry", "Feedback", "Round" }
+local NAMES = { "Attack", "Parry", "Feedback", "Round", "Scores", "Dash" }
 local folder
 
 if RunService:IsServer() then
@@ -23,4 +23,6 @@ return {
 	Parry = folder:WaitForChild("Parry"),     -- client -> server
 	Feedback = folder:WaitForChild("Feedback"), -- server -> client: kind string
 	Round = folder:WaitForChild("Round"),     -- server -> client: status message
+	Scores = folder:WaitForChild("Scores"),   -- server -> client: list of { name, kills }, highest first
+	Dash = folder:WaitForChild("Dash"),       -- client -> server: move direction (Vector3)
 }

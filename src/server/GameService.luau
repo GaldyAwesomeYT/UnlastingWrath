@@ -1,4 +1,5 @@
--- Round flow: lobby countdown, first-to-X-kills rounds, intermission, and kill tracking.
+-- Round flow: lobby countdown, first-to-X-kills rounds, intermission, kill tracking,
+-- and the reset countdown after each kill (heals everyone back to full).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -16,6 +17,33 @@ local function broadcast(message)
 	Remotes.Round:FireAllClients(message)
 end
 
+-- Sends every player's kill count this round, highest first.
+local function broadcastScores()
+	local list = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		table.insert(list, { name = player.Name, kills = kills[player] or 0 })
+	end
+	table.sort(list, function(a, b) return a.kills > b.kills end)
+	Remotes.Scores:FireAllClients(list)
+end
+
+-- After a kill: pause combat, count down, then heal every living player to full.
+local function resetAfterKill(message)
+	RoundState.paused = true
+	for seconds = Config.KillResetCountdown, 1, -1 do
+		broadcast(message .. " - resetting in " .. seconds)
+		task.wait(1)
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			humanoid.Health = humanoid.MaxHealth
+		end
+	end
+	RoundState.paused = false
+	broadcast("FIGHT!")
+end
+
 local function onDeath(player, character)
 	if not RoundState.active then return end
 
@@ -25,12 +53,15 @@ local function onDeath(player, character)
 
 	local killer = last.player
 	kills[killer] = (kills[killer] or 0) + 1
-	broadcast(killer.Name .. " scored a kill (" .. kills[killer] .. "/" .. Config.KillsToWin .. ")")
+	broadcastScores()
 
 	if kills[killer] >= Config.KillsToWin then
 		RoundState.active = false
 		broadcast(killer.Name .. " wins the round!")
+		return
 	end
+
+	task.spawn(resetAfterKill, killer.Name .. " scored a kill (" .. kills[killer] .. "/" .. Config.KillsToWin .. ")")
 end
 
 local function watchCharacter(player, character)
@@ -66,7 +97,9 @@ local function runLoop()
 
 		kills = {}
 		RoundState.active = true
+		RoundState.paused = false
 		loadEveryone()
+		broadcastScores()
 		broadcast("FIGHT! First to " .. Config.KillsToWin .. " kills")
 
 		while RoundState.active do

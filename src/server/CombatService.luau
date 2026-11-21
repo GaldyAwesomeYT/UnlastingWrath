@@ -17,7 +17,7 @@ local states = setmetatable({}, { __mode = "k" })
 local function getState(character)
 	local s = states[character]
 	if not s then
-		s = { lastAttack = 0, lastParry = 0, parryStart = -math.huge, stunnedUntil = 0 }
+		s = { lastAttack = 0, lastParry = 0, parryStart = -math.huge, stunnedUntil = 0, lastDash = 0, dashUntil = -math.huge }
 		states[character] = s
 	end
 	return s
@@ -55,6 +55,11 @@ local function resolveHit(attacker, target)
 		return -- no player-vs-player combat outside rounds
 	end
 	local targetState = getState(target)
+
+	if now < targetState.dashUntil then
+		notify(target, "Dodged")
+		return
+	end
 
 	if now >= targetState.parryStart and now - targetState.parryStart <= Config.ParryWindow then
 		targetState.parryStart = -math.huge
@@ -117,7 +122,7 @@ Remotes.Attack.OnServerEvent:Connect(function(player, mode, aimPoint)
 
 	local s = getState(character)
 	local now = os.clock()
-	if now < s.stunnedUntil or now - s.lastAttack < Config.AttackCooldown then return end
+	if RoundState.paused or now < s.stunnedUntil or now - s.lastAttack < Config.AttackCooldown then return end
 	s.lastAttack = now
 
 	local target = findTarget(character, mode, aimPoint)
@@ -132,9 +137,45 @@ Remotes.Parry.OnServerEvent:Connect(function(player)
 
 	local s = getState(character)
 	local now = os.clock()
-	if now < s.stunnedUntil or now - s.lastParry < Config.ParryCooldown then return end
+	if RoundState.paused or now < s.stunnedUntil or now - s.lastParry < Config.ParryCooldown then return end
 	s.lastParry = now
 	s.parryStart = now
+end)
+
+-- Dash: the server moves the character along the requested direction (or where it faces)
+-- for Config.DashDuration seconds. The character is untouchable by attacks during the dash.
+-- The client only sends the direction.
+Remotes.Dash.OnServerEvent:Connect(function(player, direction)
+	local character = player.Character
+	if not isAlive(character) then return end
+
+	local s = getState(character)
+	local now = os.clock()
+	if RoundState.paused or now < s.stunnedUntil or now - s.lastDash < Config.DashCooldown then return end
+
+	local root = character.HumanoidRootPart
+	local dir = typeof(direction) == "Vector3" and Vector3.new(direction.X, 0, direction.Z) or Vector3.zero
+	if dir.Magnitude < 0.01 then
+		dir = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	end
+	if dir.Magnitude < 0.01 then return end
+	dir = dir.Unit
+
+	s.lastDash = now
+	s.dashUntil = now + Config.DashDuration
+
+	-- Server drives the movement during the dash, then hands physics back to the player.
+	root:SetNetworkOwner(nil)
+	task.spawn(function()
+		while isAlive(character) and os.clock() < s.dashUntil do
+			local v = root.AssemblyLinearVelocity
+			root.AssemblyLinearVelocity = Vector3.new(dir.X * Config.DashSpeed, v.Y, dir.Z * Config.DashSpeed)
+			task.wait()
+		end
+		if root.Parent then
+			root:SetNetworkOwner(player)
+		end
+	end)
 end)
 
 local function nearestLivingPlayer(model)
@@ -164,11 +205,11 @@ function CombatService.addDummy(model)
 			task.wait(Config.DummyAttackInterval)
 
 			local target = nearestLivingPlayer(model)
-			if target and humanoid.Health > 0 and os.clock() >= getState(model).stunnedUntil then
+			if target and humanoid.Health > 0 and not RoundState.paused and os.clock() >= getState(model).stunnedUntil then
 				notify(target, "Telegraph")
 				task.wait(Config.DummyWindup)
 
-				if model.Parent and humanoid.Health > 0 and os.clock() >= getState(model).stunnedUntil
+				if model.Parent and humanoid.Health > 0 and not RoundState.paused and os.clock() >= getState(model).stunnedUntil
 					and isAlive(target) then
 					resolveHit(model, target)
 				end
