@@ -20,14 +20,23 @@ local function broadcast(message)
 	Remotes.Round:FireAllClients(message)
 end
 
--- Sends every player's kill count this match, highest first.
-local function broadcastScores()
+-- Every player's kill count this match, highest first (ties by name, so the order doesn't jump around).
+local function scoreList()
 	local list = {}
 	for _, player in ipairs(Players:GetPlayers()) do
 		table.insert(list, { name = player.Name, kills = kills[player] or 0 })
 	end
-	table.sort(list, function(a, b) return a.kills > b.kills end)
-	Remotes.Scores:FireAllClients(list)
+	table.sort(list, function(a, b)
+		if a.kills ~= b.kills then
+			return a.kills > b.kills
+		end
+		return a.name < b.name
+	end)
+	return list
+end
+
+local function broadcastScores()
+	Remotes.Scores:FireAllClients(scoreList())
 end
 
 -- Players who are ready and still in the server, in join order.
@@ -314,8 +323,19 @@ function GameService.start()
 	for _, player in ipairs(Players:GetPlayers()) do
 		bindPlayer(player)
 	end
-	Players.PlayerAdded:Connect(bindPlayer)
-	Players.PlayerRemoving:Connect(onPlayerRemoving)
+	Players.PlayerAdded:Connect(function(player)
+		bindPlayer(player)
+		broadcastScores() -- the new player appears on everyone's board
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		onPlayerRemoving(player)
+		task.delay(0.2, broadcastScores) -- after the player has left the list
+	end)
+	-- A client asks for the scores when it loads and when it opens the board: it can't have received
+	-- earlier broadcasts (a late joiner, or scores sent before its scripts ran).
+	Remotes.ScoresRequest.OnServerEvent:Connect(function(player)
+		Remotes.Scores:FireClient(player, scoreList())
+	end)
 	Remotes.Ready.OnServerEvent:Connect(setReady)
 	Remotes.Options.OnServerEvent:Connect(setOptions)
 	task.spawn(runLoop)

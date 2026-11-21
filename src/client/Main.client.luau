@@ -674,6 +674,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 	elseif input.KeyCode == Enum.KeyCode.Tab then
 		board.Visible = not board.Visible
+		if board.Visible then
+			Remotes.ScoresRequest:FireServer() -- fresh scores each time it opens
+		end
 	end
 end)
 
@@ -702,6 +705,7 @@ Remotes.Round.OnClientEvent:Connect(function(message)
 	statusLabel.Text = message
 end)
 Remotes.Scores.OnClientEvent:Connect(renderScores)
+Remotes.ScoresRequest:FireServer() -- get the current scores now, so the board isn't empty before the first match
 
 -- Title menu (opens right away; the loading screen covers it until the game has loaded).
 menu = Menu.start({

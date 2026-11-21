@@ -11,7 +11,7 @@ A Roblox PvP/PvE game built around a blade. Players swing it with the mouse, gua
 ## Layout
 - `default.project.json`: maps `src/server` → ServerScriptService/Server, `src/client` → StarterPlayerScripts/Client, `src/shared` → ReplicatedStorage/Shared, `src/replicatedfirst` → ReplicatedFirst (loading screen; restart `rojo serve` after changing this file).
 - `src/shared/Config.luau`: all tuning numbers. Change values here, not in logic.
-- `src/shared/Remotes.luau`: RemoteEvents (Feedback, Round, Scores, Dash, Ready, ReadyState, MatchStart, Block, Options, Sheathe). Server creates them.
+- `src/shared/Remotes.luau`: RemoteEvents (Feedback, Round, Scores, Dash, Ready, ReadyState, MatchStart, Block, Options, Sheathe, ScoresRequest). Server creates them.
 - `src/server/BladeService.luau`: creates each player's blade and handle, and hands the blade's physics to that player's client.
 - `src/server/CombatService.luau`: server-authoritative blade hits (by body part), clashes (parries), guard, sheathe state, stuns, kill credit, and dummy AI.
 - `src/server/TrainingService.luau`: training mode (you vs your own dummy).
