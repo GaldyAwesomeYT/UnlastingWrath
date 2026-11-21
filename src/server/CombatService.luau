@@ -51,8 +51,8 @@ local function resolveHit(attacker, target)
 	local now = os.clock()
 	local attackerPlayer = Players:GetPlayerFromCharacter(attacker)
 	local targetPlayer = Players:GetPlayerFromCharacter(target)
-	if attackerPlayer and targetPlayer and not RoundState.active then
-		return -- no player-vs-player combat outside rounds
+	if attackerPlayer and targetPlayer and not (RoundState.active and RoundState.fighters[attackerPlayer] and RoundState.fighters[targetPlayer]) then
+		return -- player-vs-player combat only between the two fighters of an active match
 	end
 	local targetState = getState(target)
 

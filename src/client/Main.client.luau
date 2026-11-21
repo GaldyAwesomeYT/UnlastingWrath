@@ -325,6 +325,33 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+-- Ready button (bottom center): joins or leaves the match queue. The match starts once
+-- Config.MatchSize players are ready.
+local readyButton = Instance.new("TextButton")
+readyButton.Name = "ReadyButton"
+readyButton.Size = UDim2.fromOffset(180, 44)
+readyButton.AnchorPoint = Vector2.new(0.5, 1)
+readyButton.Position = UDim2.new(0.5, 0, 1, -16)
+readyButton.Font = Enum.Font.GothamBold
+readyButton.TextSize = 20
+readyButton.TextColor3 = Color3.new(1, 1, 1)
+readyButton.BorderSizePixel = 0
+readyButton.Parent = gui
+
+local isReady = false
+local function setReadyLocal(value)
+	isReady = value
+	readyButton.Text = isReady and "UNREADY" or "READY"
+	readyButton.BackgroundColor3 = isReady and Color3.fromRGB(60, 160, 80) or Color3.fromRGB(60, 60, 60)
+end
+setReadyLocal(false)
+
+readyButton.Activated:Connect(function()
+	setReadyLocal(not isReady)
+	Remotes.Ready:FireServer(isReady)
+end)
+Remotes.ReadyState.OnClientEvent:Connect(setReadyLocal)
+
 -- World point under the mouse cursor.
 local function cursorAim()
 	local mouse = UserInputService:GetMouseLocation()

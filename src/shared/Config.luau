@@ -17,7 +17,8 @@ local Config = {
 
 	-- Rounds
 	KillsToWin = 5,           -- first to this many kills wins the round
-	LobbyCountdown = 5,       -- seconds before each round starts
+	MatchSize = 2,            -- players who must press Ready before the lobby countdown starts (1v1)
+	LobbyCountdown = 5,       -- seconds before each match starts (ready players must stay ready)
 	IntermissionTime = 5,     -- seconds after a round ends
 	RespawnTime = 3,          -- seconds until a dead player respawn
 	KillCredit = 6,           -- a kill counts if the victim was hit by the killer this recently

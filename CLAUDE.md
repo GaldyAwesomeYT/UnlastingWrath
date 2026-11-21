@@ -11,16 +11,17 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 ## Layout
 - `default.project.json`: maps `src/server` → ServerScriptService/Server, `src/client` → StarterPlayerScripts/Client, `src/shared` → ReplicatedStorage/Shared.
 - `src/shared/Config.luau`: all tuning numbers. Change values here, not in logic.
-- `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round, Scores, Dash). Server creates them.
+- `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round, Scores, Dash, Ready, ReadyState). Server creates them.
 - `src/server/CombatService.luau`: server-authoritative attacks, parries, stuns, kill credit, and dummy AI.
-- `src/server/GameService.luau`: round loop (lobby countdown, first to KillsToWin, intermission), kill counts, post-kill reset countdown, and scores broadcast.
-- `src/server/RoundState.luau`: shared "round active" and "paused" flags.
+- `src/server/GameService.luau`: ready-up queue (needs `Config.MatchSize` players), lobby countdown, first to KillsToWin between the fighters, intermission, kill counts, post-kill reset countdown, and scores broadcast.
+- `src/server/RoundState.luau`: shared "active", "paused", and "fighters" state.
 - `src/server/Main.server.luau`: builds the floor and training dummy, starts services.
-- `src/client/Main.client.luau`: input, cursor aiming, HUD (mode label, feedback, self health bar top-left, opponent health bars top-right, stun bar, round status, parry flash, scoreboard).
+- `src/client/Main.client.luau`: input, cursor aiming, HUD (mode label, feedback, self health bar top-left, opponent health bars top-right, stun bar, round status, parry flash, scoreboard, Ready button).
 
 ## Rules
 - Combat logic stays on the server. The client only sends intent (attack, parry) and displays results.
-- Player-vs-player combat is only allowed while `RoundState.active` is true. The training dummy always works.
+- Player-vs-player combat is only allowed between the two fighters while `RoundState.active` is true. The training dummy always works.
+- Matches are 1v1 from a ready-up queue: a match starts only after `Config.MatchSize` players press Ready and stay ready through `Config.LobbyCountdown`. Everyone must press Ready again for the next match. Fighters spawn at x = ±12 on the arena's center line, facing each other (`startMatch` in `GameService`; assumes `MatchSize` = 2).
 - Keep the two control modes working: Simple (click attacks nearest enemy in front) and Manual (character faces cursor, click swings at what's under it). Toggle with M. Tab toggles the scoreboard (moved off Tab so the two don't clash).
 - After every kill, combat pauses for `Config.KillResetCountdown` seconds, then all living players are healed to full. Kill counts live on the server; clients get them via the `Scores` remote.
 - Don't add sound IDs or assets you can't confirm are usable. `Config.ParrySoundId` stays empty until the user sets it.
@@ -31,4 +32,5 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - Stun timer (HUD bar under health, counts down the parry stun; server sends only the duration): written, not yet tested in Studio.
 - Scoreboard (Tab) with per-round kills, and post-kill reset countdown with full heal: written, not yet tested in Studio.
 - Dash (Shift, `Config.DashKey`): server moves the character for `DashDuration` and makes it untouchable (attacks show "DODGE!"). Opponent HP bars top-right: written, not yet tested in Studio.
+- Ready-up queue (Ready button, 1v1 once 2 players are ready, countdown cancels if someone unreadies): written, not yet tested in Studio.
 - Next planned: balance tuning, lobby/spawn/map polish.
