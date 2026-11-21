@@ -153,8 +153,8 @@ end
 -- Motor6D: Part1.CFrame = Part0.CFrame * C0 * Transform * C1:Inverse(), so C0 = Part0.CFrame:Inverse() * desired * C1.
 local function placeMotor(motor, center, travel, hint)
 	local desired = segmentCFrame(center, travel, hint)
-	if motor.Transform ~= CFrame.new() then
-		motor.Transform = CFrame.new()
+	if motor:IsA("Motor6D") and motor.Transform ~= CFrame.new() then
+		motor.Transform = CFrame.new() -- (a Weld, used for the arms, has no Transform)
 	end
 	local newC0 = motor.Part0.CFrame:Inverse() * desired * motor.C1
 	-- Only write when the pose actually moved, so a still arm isn't re-set every frame.
@@ -175,6 +175,42 @@ local function originalC1(motor)
 	return restC1[motor]
 end
 
+-- While the blade is drawn, each arm hangs on its own Weld instead of the shoulder Motor6D. The default
+-- animation (kept running for the legs) only drives Motor6Ds, so it can't move an arm on a Weld. The
+-- Motor6D is switched off meanwhile and comes back for default mode (see releaseArms).
+local armWelds = setmetatable({}, { __mode = "k" }) -- [shoulder Motor6D] = its Weld
+local function weldFor(motor)
+	local weld = armWelds[motor]
+	if not (weld and weld.Parent) then
+		weld = Instance.new("Weld")
+		weld.Name = "Blade" .. string.gsub(motor.Name, " ", "")
+		weld.Part0 = motor.Part0
+		weld.Part1 = motor.Part1
+		weld.C0 = motor.C0
+		weld.C1 = motor.C1
+		weld.Enabled = false
+		weld.Parent = motor.Parent
+		armWelds[motor] = weld
+	end
+	return weld
+end
+
+-- The arms go back on their shoulder Motor6Ds, for the default animation.
+local function releaseArms(character)
+	local torso = character:FindFirstChild("Torso")
+	if not torso then return end
+	for _, name in ipairs({ "Right Shoulder", "Left Shoulder" }) do
+		local motor = torso:FindFirstChild(name)
+		local weld = motor and armWelds[motor]
+		if weld then
+			weld.Enabled = false
+		end
+		if motor then
+			motor.Enabled = true
+		end
+	end
+end
+
 -- The shoulder joint sits JOINT_DROP studs below the top of the arm (R6: arm is 2 tall, joint at y = 0.5).
 local JOINT_DROP = 0.5
 
@@ -185,6 +221,13 @@ local JOINT_DROP = 0.5
 local function poseArm(character, side, target, look)
 	local shoulder, motor, arm = shoulderOf(character, side)
 	if not shoulder then return nil end
+
+	-- The arm hangs on its Weld (the animation can't reach it); the Motor6D is off while the blade is drawn.
+	local joint = weldFor(motor)
+	if motor.Enabled or not joint.Enabled then
+		joint.Enabled = true
+		motor.Enabled = false
+	end
 
 	local rest = restArmLength(arm)
 	local restOne = originalC1(motor)
@@ -202,14 +245,14 @@ local function poseArm(character, side, target, look)
 	-- Keep the joint JOINT_DROP below the top of the resized arm.
 	local jointY = len / 2 - JOINT_DROP
 	local c1 = restOne - Vector3.new(0, restOne.Position.Y, 0) + Vector3.new(0, jointY, 0)
-	if (motor.C1.Position - c1.Position).Magnitude > 1e-3 then
-		motor.C1 = c1
+	if (joint.C1.Position - c1.Position).Magnitude > 1e-3 then
+		joint.C1 = c1
 	end
 
 	-- Arm orientation, then slide its center so the joint point lands exactly on the shoulder.
 	local rotation = segmentCFrame(Vector3.zero, travel, look)
 	local center = shoulder - rotation:VectorToWorldSpace(c1.Position)
-	placeMotor(motor, center, travel, look)
+	placeMotor(joint, center, travel, look)
 	return shoulder + travel * (len - JOINT_DROP)
 end
 
@@ -502,6 +545,7 @@ local function poseHands()
 		restoreRestPose(character)
 		if not animationActive then
 			animationActive = true
+			releaseArms(character) -- the arms go back on their shoulder motors, for the animation
 			-- Clear any leftover pose from the arm posing, so the animation starts from nothing.
 			local torso = character:FindFirstChild("Torso")
 			if torso then
@@ -562,22 +606,6 @@ local function poseHands()
 		poseLegs(character, root)
 	else
 		restLegs(character)
-	end
-end
-
--- The default animation runs while the blade is drawn too (Config.LegAnimation), so the legs walk. It
--- also writes the arms' Transform every frame, after the render step, so it is cleared again right after
--- each animation update (Heartbeat). The arm pose lives in C0, and a leftover Transform would bend it.
-local function clearArmAnimation()
-	if not Config.LegAnimation or Weapon.isDefaultMode() then return end
-	local character = player.Character
-	local torso = character and character:FindFirstChild("Torso")
-	if not torso then return end
-	for _, name in ipairs({ "Right Shoulder", "Left Shoulder" }) do
-		local motor = torso:FindFirstChild(name)
-		if motor and motor.Transform ~= CFrame.new() then
-			motor.Transform = CFrame.new()
-		end
 	end
 end
 
@@ -656,7 +684,6 @@ function Weapon.start(menuOpenCheck)
 	end
 	player.CharacterAdded:Connect(onCharacter)
 
-	RunService.Heartbeat:Connect(clearArmAnimation)
 	RunService.RenderStepped:Connect(driveCharacterBlade)
 	RunService:BindToRenderStep("BladeHands", Enum.RenderPriority.Last.Value, poseHands)
 end
