@@ -20,7 +20,7 @@ A Roblox PvP/PvE game built around a blade. Players swing it with the mouse, gua
 - `src/server/Main.server.luau`: builds the floor and training dummy, starts services.
 - `src/client/Main.client.luau`: input, HUD (mode label, feedback, self health bar top-left, opponent health bars top-right, stun bar, dash cooldown bar, round status, parry flash, scoreboard, Ready button), body facing, dash, duel intro camera.
 - `src/client/Weapon.luau`: blade control and arm posing. A virtual cursor in an on-screen circle aims the blade, the arms are posed through the shoulder Motor6Ds (joint kept on the shoulder), plus guard, sheathe, and look-around.
-- `src/client/LockedCamera.luau`: shift-lock style camera fixed to the head, turning with the body's facing (plus look-around offsets).
+- `src/client/LockedCamera.luau`: shift-lock style camera fixed to the head, turning with the body's facing (plus look-around offsets). Sheathing or drawing the blade pans smoothly between it and Roblox's normal camera (`Config.CameraPanTime`).
 - `src/client/LockOn.luau`: lock-on target choice (the other fighter in a match, else the nearest training dummy) and the marker over it. `Main.client.luau` turns the body toward it.
 - `src/client/Menu.luau`: title menu.
 

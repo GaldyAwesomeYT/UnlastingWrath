@@ -82,6 +82,7 @@ local Config = {
 	CameraRightOffset = 1.75,     -- studs to the right of the head
 	CameraBackDistance = 7,       -- studs behind the head
 	CameraHeight = 0.5,           -- studs above the head
+	CameraPanTime = 0.8,          -- seconds for the smooth pan when the blade is sheathed or drawn (locked camera <-> normal camera)
 
 	-- Dash / dodge
 	DashKey = "LeftShift",        -- Enum.KeyCode name; SHIFT on the keyboard
