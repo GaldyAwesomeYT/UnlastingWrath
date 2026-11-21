@@ -24,7 +24,7 @@ return {
 	Feedback = folder:WaitForChild("Feedback"), -- server -> client: kind string
 	Round = folder:WaitForChild("Round"),     -- server -> client: status message
 	Scores = folder:WaitForChild("Scores"),   -- server -> client: list of { name, kills }, highest first
-	Dash = folder:WaitForChild("Dash"),       -- client -> server: move direction (Vector3)
+	Dash = folder:WaitForChild("Dash"),       -- client -> server: dash request (no args); server grants the dodge window
 	Ready = folder:WaitForChild("Ready"),     -- client -> server: true to queue, false to leave the queue
 	ReadyState = folder:WaitForChild("ReadyState"), -- server -> client: boolean, syncs the Ready button
 	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players, fired once they're placed

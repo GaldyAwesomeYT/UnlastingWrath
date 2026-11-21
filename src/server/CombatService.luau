@@ -142,10 +142,10 @@ Remotes.Parry.OnServerEvent:Connect(function(player)
 	s.parryStart = now
 end)
 
--- Dash: the server moves the character along the requested direction (or where it faces)
--- for Config.DashDuration seconds. The character is untouchable by attacks during the dash.
--- The client only sends the direction.
-Remotes.Dash.OnServerEvent:Connect(function(player, direction)
+-- Dash: the client moves its own character (see Main.client.luau). The server only checks
+-- the cooldown and grants the dodge window: the character is untouchable by attacks for
+-- Config.DashDuration seconds after this runs.
+Remotes.Dash.OnServerEvent:Connect(function(player)
 	local character = player.Character
 	if not isAlive(character) then return end
 
@@ -153,29 +153,8 @@ Remotes.Dash.OnServerEvent:Connect(function(player, direction)
 	local now = os.clock()
 	if RoundState.paused or now < s.stunnedUntil or now - s.lastDash < Config.DashCooldown then return end
 
-	local root = character.HumanoidRootPart
-	local dir = typeof(direction) == "Vector3" and Vector3.new(direction.X, 0, direction.Z) or Vector3.zero
-	if dir.Magnitude < 0.01 then
-		dir = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-	end
-	if dir.Magnitude < 0.01 then return end
-	dir = dir.Unit
-
 	s.lastDash = now
 	s.dashUntil = now + Config.DashDuration
-
-	-- Server drives the movement during the dash, then hands physics back to the player.
-	root:SetNetworkOwner(nil)
-	task.spawn(function()
-		while isAlive(character) and os.clock() < s.dashUntil do
-			local v = root.AssemblyLinearVelocity
-			root.AssemblyLinearVelocity = Vector3.new(dir.X * Config.DashSpeed, v.Y, dir.Z * Config.DashSpeed)
-			task.wait()
-		end
-		if root.Parent then
-			root:SetNetworkOwner(player)
-		end
-	end)
 end)
 
 local function nearestLivingPlayer(model)

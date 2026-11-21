@@ -419,6 +419,47 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+-- Dash: the client drives its own character with a horizontal LinearVelocity for
+-- Config.DashDuration seconds (the client owns its physics, so this stays smooth and
+-- holding a movement key doesn't cancel it). The server is told to grant the dodge window.
+local lastDash = -math.huge
+local function startDash()
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (humanoid and root and humanoid.Health > 0) then return end
+
+	local now = os.clock()
+	if now - lastDash < Config.DashCooldown then return end
+
+	local dir = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
+	if dir.Magnitude < 0.01 then
+		dir = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	end
+	if dir.Magnitude < 0.01 then return end
+	dir = dir.Unit
+
+	lastDash = now
+	Remotes.Dash:FireServer()
+
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = root
+
+	local velocity = Instance.new("LinearVelocity")
+	velocity.Attachment0 = attachment
+	velocity.RelativeTo = Enum.ActuatorRelativeTo.World
+	velocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+	velocity.VectorVelocity = dir * Config.DashSpeed
+	velocity.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+	velocity.MaxAxesForce = Vector3.new(1e5, 0, 1e5) -- horizontal only, so gravity still applies
+	velocity.Parent = root
+
+	task.delay(Config.DashDuration, function()
+		velocity:Destroy()
+		attachment:Destroy()
+	end)
+end
+
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 
@@ -429,8 +470,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 			Remotes.Attack:FireServer(mode)
 		end
 	elseif input.KeyCode == Enum.KeyCode[Config.DashKey] then
-		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		Remotes.Dash:FireServer(humanoid and humanoid.MoveDirection or Vector3.zero)
+		startDash()
 	elseif input.KeyCode == Enum.KeyCode.F then
 		Remotes.Parry:FireServer()
 	elseif input.KeyCode == Enum.KeyCode.M then
