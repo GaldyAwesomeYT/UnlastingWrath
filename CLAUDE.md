@@ -24,7 +24,7 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - At round start the server freezes the fighters and pauses combat for the duel intro's total time (the `Config.Duel*` values). The camera is client-only and uses Roblox's built-in camera APIs.
 - Matches are 1v1 from a ready-up queue: a match starts only after `Config.MatchSize` players press Ready and stay ready through `Config.LobbyCountdown`. Everyone must press Ready again for the next match. Fighters spawn at x = ±12 on the arena's center line, facing each other (`startMatch` in `GameService`; assumes `MatchSize` = 2).
 - Keep the two control modes working: Simple (click attacks nearest enemy in front) and Manual (character faces cursor, click swings at what's under it). Toggle with M. Tab toggles the scoreboard (moved off Tab so the two don't clash).
-- After every kill, combat pauses for `Config.KillResetCountdown` seconds, then all living players are healed to full. Kill counts live on the server; clients get them via the `Scores` remote.
+- After every kill, combat pauses for `Config.KillResetCountdown` seconds, then the fighters are moved back to their match spots (x = ±12, facing each other, not the spawn location) and healed to full. Written, not yet tested in Studio. Kill counts live on the server; clients get them via the `Scores` remote.
 - Don't add sound IDs or assets you can't confirm are usable. `Config.ParrySoundId` stays empty until the user sets it.
 - Make small, focused changes and tell the user which files changed so they can copy them to `C:\Projects\RobloxGame` (or commit them locally).
 

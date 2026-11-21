@@ -50,13 +50,49 @@ local function pickFighters()
 	return picked
 end
 
--- After a kill: pause combat, count down, then heal every fighter to full.
+-- Fighter start positions: opposite sides of the arena, each facing the other.
+local SPAWN_SPOTS = { Vector3.new(-12, 3, 0), Vector3.new(12, 3, 0) }
+local matchFighters = {} -- the current match's fighters, in SPAWN_SPOTS order
+
+-- Moves each fighter to their spot, facing the other fighter.
+local function placeFighters()
+	for i, player in ipairs(matchFighters) do
+		local spot = SPAWN_SPOTS[i]
+		local other = SPAWN_SPOTS[3 - i]
+		local character = player.Character
+		local root = character and character:WaitForChild("HumanoidRootPart", 2)
+		if root then
+			root.CFrame = CFrame.lookAt(spot, Vector3.new(other.X, spot.Y, other.Z))
+		end
+	end
+end
+
+-- Waits (up to `timeout` seconds) until every fighter has a living character, e.g. after a respawn.
+local function waitForFighters(timeout)
+	local deadline = os.clock() + timeout
+	while os.clock() < deadline do
+		local allAlive = true
+		for _, player in ipairs(matchFighters) do
+			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if not (humanoid and humanoid.Health > 0) then
+				allAlive = false
+			end
+		end
+		if allAlive then return end
+		task.wait(0.1)
+	end
+end
+
+-- After a kill: pause combat, count down, wait for any respawns, put the fighters back on their
+-- spots (not the spawn location), then heal them to full.
 local function resetAfterKill(message)
 	RoundState.paused = true
 	for seconds = Config.KillResetCountdown, 1, -1 do
 		broadcast(message .. " - resetting in " .. seconds)
 		task.wait(1)
 	end
+	waitForFighters(5)
+	placeFighters()
 	for player in pairs(RoundState.fighters) do
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health > 0 then
@@ -162,7 +198,8 @@ local function startMatch()
 	RoundState.active = true
 	RoundState.paused = false
 	-- Spawn the two fighters on opposite sides of the arena, each facing the other.
-	local spots = { Vector3.new(-12, 3, 0), Vector3.new(12, 3, 0) }
+	matchFighters = fighters
+	local spots = SPAWN_SPOTS
 	local placed = 0
 	for i, player in ipairs(fighters) do
 		local spot = spots[i]
