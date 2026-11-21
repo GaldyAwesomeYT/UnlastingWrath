@@ -16,7 +16,7 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - `src/server/GameService.luau`: ready-up queue (needs `Config.MatchSize` players), lobby countdown, first to KillsToWin between the fighters, intermission, kill counts, post-kill reset countdown, and scores broadcast.
 - `src/server/RoundState.luau`: shared "active", "paused", and "fighters" state.
 - `src/server/Main.server.luau`: builds the floor and training dummy, starts services.
-- `src/client/Main.client.luau`: input, cursor aiming, HUD (mode label, feedback, self health bar top-left, opponent health bars top-right, stun bar, round status, parry flash, scoreboard, Ready button).
+- `src/client/Main.client.luau`: input, cursor aiming, HUD (mode label, feedback, self health bar top-left, opponent health bars top-right, stun bar, dash cooldown bar, round status, parry flash, scoreboard, Ready button).
 
 ## Rules
 - Combat logic stays on the server. The client only sends intent (attack, parry) and displays results.

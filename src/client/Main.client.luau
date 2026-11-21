@@ -566,6 +566,42 @@ local function startDash()
 	end)
 end
 
+-- Dash cooldown indicator (bottom-left, under the stun bar). Fills as the cooldown recovers,
+-- and is bright when the dash is ready. Uses the same lastDash clock as startDash.
+local dashBack = Instance.new("Frame")
+dashBack.Name = "DashCooldownBack"
+dashBack.Size = UDim2.fromOffset(260, 10)
+dashBack.Position = UDim2.new(0, 16, 1, -92)
+dashBack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+dashBack.BorderSizePixel = 0
+dashBack.Parent = gui
+
+local dashFill = Instance.new("Frame")
+dashFill.Name = "Fill"
+dashFill.Size = UDim2.fromScale(1, 1)
+dashFill.BorderSizePixel = 0
+dashFill.Parent = dashBack
+
+local dashLabel = Instance.new("TextLabel")
+dashLabel.Size = UDim2.fromScale(1, 1)
+dashLabel.BackgroundTransparency = 1
+dashLabel.Font = Enum.Font.GothamBold
+dashLabel.TextSize = 12
+dashLabel.TextColor3 = Color3.new(1, 1, 1)
+dashLabel.Text = "DASH"
+dashLabel.Parent = dashBack
+
+RunService.RenderStepped:Connect(function()
+	local remaining = Config.DashCooldown - (os.clock() - lastDash)
+	if remaining <= 0 then
+		dashFill.Size = UDim2.fromScale(1, 1)
+		dashFill.BackgroundColor3 = Color3.fromRGB(120, 200, 255)
+	else
+		dashFill.Size = UDim2.fromScale(math.clamp(1 - remaining / Config.DashCooldown, 0, 1), 1)
+		dashFill.BackgroundColor3 = Color3.fromRGB(70, 90, 110)
+	end
+end)
+
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 
