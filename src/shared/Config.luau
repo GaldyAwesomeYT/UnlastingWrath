@@ -16,15 +16,18 @@ local Config = {
 	WeaponHandSpacing = 0.3,      -- studs along the handle from the right hand to the left hand (the left hand is further toward the tip)
 	AnimateLegs = false,          -- true: procedural walk swing for the legs. Off for now: the swing made the legs spread apart
 	WeaponResponsiveness = 60,    -- how quickly the blade turns toward the mouse (0-200)
-	WeaponHitRadius = 2.2,        -- studs around the blade that count as touching a target
-	ControlledSwingSpeed = 20,    -- studs/second at the tip. Slower swings are "controlled": damage depends on the body part hit
+	BladeThickness = 0.3,         -- studs around the blade's edge that count as touching a body part (the blade must actually reach the body)
+	HitMinSpeed = 6,              -- studs/second at the tip (relative to the body). A blade resting against someone deals no damage
 	HitCooldown = 0.5,            -- seconds before the same blade can hit the same target again
-	HitMultipliers = {            -- controlled swings only: damage multiplier by body region
+	HitMultipliers = {            -- damage multiplier by the body part the blade touches
 		Head = 2.0,
 		Torso = 1.0,
 		Limb = 0.5,
 	},
-	GuardButton = "MouseButton2", -- hold to guard (Enum.UserInputType name)
+	GuardKey = "F",               -- hold to guard (Enum.KeyCode name)
+	LookButton = "MouseButton2",  -- hold and move the mouse to look around (Enum.UserInputType name); the blade holds still
+	LookSensitivity = 0.003,      -- radians of camera turn per pixel of mouse movement while looking around
+	LookPitchLimit = 70,          -- degrees the camera can look up or down while looking around
 
 	-- Clash (parry) and guard
 	ClashRadius = 0.5,            -- studs between two blades that counts as a clash

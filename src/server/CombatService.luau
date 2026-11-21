@@ -1,10 +1,9 @@
 -- Server-authoritative combat: blade hits, clashes (parries), guard, stuns, and dummy AI.
 -- The client drives the blade (Weapon.luau). Every heartbeat the server reads each player's
 -- replicated blade and resolves:
---   * hits: the blade touches another living character
+--   * hits: a moving blade (tip speed at least Config.HitMinSpeed) touches a body part of another living character
 --   * clashes: two blades touch. The faster tip wins the parry and the slower player is stunned.
--- Damage: a controlled swing (tip speed under Config.ControlledSwingSpeed) scales with the body part
--- hit (Config.HitMultipliers). A fast swing deals base damage wherever it lands.
+-- Damage: scales with the body part the blade touches (Config.HitMultipliers): head, torso, or limb.
 -- Guard (held button): the client puts the blade in front of the body. While guarding, damage is reduced.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -65,17 +64,6 @@ local function allFighters(except)
 	return list
 end
 
--- Distance from point p to the segment a..b.
-local function segmentDistance(p, a, b)
-	local ab = b - a
-	local len2 = ab:Dot(ab)
-	local t = 0
-	if len2 > 0 then
-		t = math.clamp((p - a):Dot(ab) / len2, 0, 1)
-	end
-	return (p - (a + ab * t)).Magnitude
-end
-
 -- Closest distance between segments p1..q1 and p2..q2 (standard clamped closest-point test).
 local function segmentSegmentDistance(p1, q1, p2, q2)
 	local d1 = q1 - p1
@@ -122,18 +110,37 @@ local function regionMultiplier(part)
 	return Config.HitMultipliers.Limb
 end
 
--- Multiplier for the body part of `target` that is closest to the blade (base..tip).
-local function hitMultiplier(target, base, tip)
-	local best, bestDist = nil, math.huge
+-- Distance from a world point to the surface of a part's box (0 if inside).
+local function distanceToPart(part, point)
+	local local_ = part.CFrame:PointToObjectSpace(point)
+	local half = part.Size / 2
+	local outside = Vector3.new(
+		math.max(math.abs(local_.X) - half.X, 0),
+		math.max(math.abs(local_.Y) - half.Y, 0),
+		math.max(math.abs(local_.Z) - half.Z, 0)
+	)
+	return outside.Magnitude
+end
+
+local BLADE_SAMPLES = 10 -- points checked along the blade; spacing stays under Config.BladeThickness
+
+-- The body part of `target` that the blade (base..tip) actually touches, or nil. Looks at the real
+-- part boxes, so the blade must reach the body; being near the character's center isn't enough.
+-- If several parts are touched, the one the blade reaches deepest wins.
+local function bladeHitPart(target, base, tip)
+	local best, bestDist = nil, Config.BladeThickness
 	for _, part in ipairs(target:GetChildren()) do
-		if part:IsA("BasePart") then
-			local d = segmentDistance(part.Position, base, tip)
-			if d < bestDist then
-				best, bestDist = part, d
+		-- The target's own blade and handle are parts of the character, but they aren't its body.
+		if part:IsA("BasePart") and part.Name ~= "Blade" and part.Name ~= "Grip" then
+			for i = 0, BLADE_SAMPLES do
+				local d = distanceToPart(part, base:Lerp(tip, i / BLADE_SAMPLES))
+				if d <= bestDist then
+					best, bestDist = part, d
+				end
 			end
 		end
 	end
-	return best and regionMultiplier(best) or 1
+	return best
 end
 
 -- Whether two characters are allowed to fight each other right now: player-vs-player combat is
@@ -227,15 +234,17 @@ local function checkSwings()
 	for _, character in ipairs(swinging) do
 		local s = getState(character)
 		if not (RoundState.paused or now < s.stunnedUntil) then
-			local controlled = s.speed < Config.ControlledSwingSpeed
-			for _, target in ipairs(allFighters(character)) do
-				local last = s.hitAt[target]
-				local targetRoot = target.HumanoidRootPart
-				if (not last or now - last >= Config.HitCooldown)
-					and segmentDistance(targetRoot.Position, s.seg.base, s.seg.tip) <= Config.WeaponHitRadius then
-					s.hitAt[target] = now
-					local multiplier = controlled and hitMultiplier(target, s.seg.base, s.seg.tip) or 1
-					resolveHit(character, target, multiplier)
+			-- A blade held still against someone doesn't hurt them; it has to be swung.
+			if s.speed >= Config.HitMinSpeed then
+				for _, target in ipairs(allFighters(character)) do
+					local last = s.hitAt[target]
+					if not last or now - last >= Config.HitCooldown then
+						local part = bladeHitPart(target, s.seg.base, s.seg.tip)
+						if part then
+							s.hitAt[target] = now
+							resolveHit(character, target, regionMultiplier(part))
+						end
+					end
 				end
 			end
 		end

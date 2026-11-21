@@ -12,7 +12,8 @@ local LockedCamera = {}
 
 local LOOK_DISTANCE = 50 -- how far ahead the camera looks; keeps the view parallel to the character's facing
 
-function LockedCamera.start(isBusy)
+-- getLook (optional): returns the look-around yaw (right is positive) and pitch (up is positive), in radians.
+function LockedCamera.start(isBusy, getLook)
 	local player = Players.LocalPlayer
 	local camera = workspace.CurrentCamera
 
@@ -42,13 +43,22 @@ function LockedCamera.start(isBusy)
 			look = Vector3.new(0, 0, -1)
 		end
 		look = look.Unit
+
+		-- Look around: turn the view by yaw (around the vertical axis) and pitch, both zero normally.
+		local yaw, pitch = 0, 0
+		if getLook then
+			yaw, pitch = getLook()
+		end
+		local facing = CFrame.lookAt(Vector3.zero, look)
+		look = (facing * CFrame.fromEulerAnglesYXZ(0, -yaw, 0)).LookVector -- level, so the camera sits at the same height
+		local view = (facing * CFrame.fromEulerAnglesYXZ(pitch, -yaw, 0)).LookVector
 		local right = look:Cross(Vector3.yAxis).Unit
 
 		local position = head.Position
 			+ right * Config.CameraRightOffset
 			- look * Config.CameraBackDistance
 			+ Vector3.yAxis * Config.CameraHeight
-		camera.CFrame = CFrame.lookAt(position, position + look * LOOK_DISTANCE)
+		camera.CFrame = CFrame.lookAt(position, position + view * LOOK_DISTANCE)
 	end)
 end
 

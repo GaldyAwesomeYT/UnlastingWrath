@@ -521,7 +521,14 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 
-	humanoid.AutoRotate = true
+	-- The camera is locked to the body's facing, so turning toward a backward move (S) would swing the camera
+	-- around and flip "backward" every frame, spinning the player. Walk backward without turning instead.
+	local move = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
+	local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	local movingBackward = move.Magnitude > 0.01 and look.Magnitude > 0.01 and move.Unit:Dot(look.Unit) < -0.3
+	-- Same loop while looking around: the camera is off the body's facing, so turning toward a move
+	-- would drag the camera and change the move direction again. The body holds still instead.
+	humanoid.AutoRotate = not (movingBackward or Weapon.isLooking())
 end)
 
 -- Dash: the client drives its own character with a horizontal LinearVelocity for
@@ -601,7 +608,7 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- Blade swings need no click: the blade follows the mouse (Weapon.luau). Right mouse guards.
+-- Blade swings need no click: the blade follows the mouse (Weapon.luau). F guards; holding right mouse looks around.
 -- Holding Left Alt frees the cursor and locks gameplay input (no dash, no guard) until it's released.
 local guardHeld = false
 local function setGuard(held)
@@ -625,8 +632,10 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
 	if input.KeyCode == Enum.KeyCode[Config.DashKey] then
 		startDash()
-	elseif input.UserInputType == Enum.UserInputType[Config.GuardButton] then
+	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
 		setGuard(true)
+	elseif input.UserInputType == Enum.UserInputType[Config.LookButton] then
+		Weapon.setLooking(true)
 	elseif input.KeyCode == Enum.KeyCode.Tab then
 		board.Visible = not board.Visible
 	end
@@ -635,8 +644,10 @@ end)
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode[Config.FreeCursorKey] then
 		Weapon.setFreeKey(false)
-	elseif input.UserInputType == Enum.UserInputType[Config.GuardButton] then
+	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
 		setGuard(false) -- always release, even while the cursor is free
+	elseif input.UserInputType == Enum.UserInputType[Config.LookButton] then
+		Weapon.setLooking(false)
 	end
 end)
 
@@ -645,7 +656,7 @@ Weapon.start(function()
 end)
 LockedCamera.start(function()
 	return facingTarget ~= nil -- the duel intro moves the camera itself
-end)
+end, Weapon.getLook)
 
 Remotes.Feedback.OnClientEvent:Connect(function(kind, duration)
 	showFeedback(kind)

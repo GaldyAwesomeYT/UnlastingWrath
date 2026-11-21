@@ -36,6 +36,12 @@ local guardBlend = 0
 local aimOffset = Vector2.zero
 local aimRadius = 1
 local freeKeyHeld = false -- set by Main.client from the Config.FreeCursorKey input
+
+-- Look around: while the look button is held, the mouse turns the camera (yaw/pitch offsets from the
+-- body's facing, in radians) instead of moving the cursor. Both reset when the button is released.
+local looking = false
+local lookYaw = 0
+local lookPitch = 0
 local isMenuOpen = function()
 	return false
 end
@@ -213,9 +219,16 @@ local function updateCursor()
 	if free then return end
 
 	local delta = UserInputService:GetMouseDelta()
-	aimOffset += Vector2.new(delta.X, delta.Y) * Config.AimSensitivity
-	if aimOffset.Magnitude > aimRadius then
-		aimOffset = aimOffset.Unit * aimRadius
+	if looking then
+		-- Looking around: the mouse turns the camera, and the cursor (and so the blade) holds still.
+		lookYaw += delta.X * Config.LookSensitivity
+		local limit = math.rad(Config.LookPitchLimit)
+		lookPitch = math.clamp(lookPitch - delta.Y * Config.LookSensitivity, -limit, limit)
+	else
+		aimOffset += Vector2.new(delta.X, delta.Y) * Config.AimSensitivity
+		if aimOffset.Magnitude > aimRadius then
+			aimOffset = aimOffset.Unit * aimRadius
+		end
 	end
 
 	-- Draw the circle and the cursor dot.
@@ -421,6 +434,27 @@ end
 -- Left Alt pressed or released (called from Main.client).
 function Weapon.setFreeKey(held)
 	freeKeyHeld = held == true
+	if freeKeyHeld then
+		Weapon.setLooking(false) -- the free cursor ends any look-around
+	end
+end
+
+-- Look button pressed or released (called from Main.client). Can't start while the cursor is free.
+-- Releasing puts the camera back behind the body.
+function Weapon.setLooking(held)
+	looking = held == true and not Weapon.isFree()
+	if not looking then
+		lookYaw, lookPitch = 0, 0
+	end
+end
+
+function Weapon.isLooking()
+	return looking
+end
+
+-- The camera's look-around offsets from the body's facing: yaw (right is positive), pitch (up is positive).
+function Weapon.getLook()
+	return lookYaw, lookPitch
 end
 
 -- Guard button held or released. Guard can't be raised while the cursor is free.
