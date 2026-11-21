@@ -10,6 +10,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Menu = require(script.Parent.Menu)
 local Weapon = require(script.Parent.Weapon)
 local LockedCamera = require(script.Parent.LockedCamera)
+local LockOn = require(script.Parent.LockOn)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -493,6 +494,7 @@ end
 
 Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
 	setOpponentBars(fighters)
+	LockOn.setFighters(fighters)
 	for _, fighter in ipairs(fighters) do
 		if fighter == player then
 			task.spawn(playDuelIntro, fighters)
@@ -502,14 +504,18 @@ Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
 end)
 
 -- Body facing: the character turns toward its movement (Roblox default). The duel intro overrides it.
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not (humanoid and root and humanoid.Health > 0) then return end
+	if not (humanoid and root and humanoid.Health > 0) then
+		LockOn.update(nil, false) -- hides the marker
+		return
+	end
 
 	-- Match intro: hold the fighter facing the opponent, ignoring cursor aiming.
 	if facingTarget then
+		LockOn.update(root, false) -- hides the lock-on marker during the intro
 		humanoid.AutoRotate = false
 		local otherRoot = facingTarget.Character and facingTarget.Character:FindFirstChild("HumanoidRootPart")
 		if otherRoot then
@@ -523,7 +529,25 @@ RunService.RenderStepped:Connect(function()
 
 	-- Blade sheathed: normal Roblox movement, the body turns toward where it walks.
 	if Weapon.isDefaultMode() then
+		LockOn.update(root, false)
 		humanoid.AutoRotate = true
+		return
+	end
+
+	-- Lock-on: the body faces the opponent, so A and D strafe around them and the camera stays on them.
+	-- While looking around (right mouse) or with the cursor free, the body holds still.
+	local lockedRoot = LockOn.update(root, true)
+	if lockedRoot then
+		humanoid.AutoRotate = false
+		if not (Weapon.isLooking() or Weapon.isFree()) then
+			local toTarget = lockedRoot.Position - root.Position
+			toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
+			if toTarget.Magnitude > 0.5 then -- too close to tell which way is "toward"
+				local goal = CFrame.lookAt(root.Position, root.Position + toTarget)
+				local alpha = math.min(1, dt * Config.LockOnTurnSpeed)
+				root.CFrame = root.CFrame.Rotation:Lerp(goal.Rotation, alpha) + root.Position
+			end
+		end
 		return
 	end
 
@@ -642,6 +666,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		if Weapon.toggleSheathe() and guardHeld then
 			setGuard(false) -- sheathing drops the guard
 		end
+	elseif input.KeyCode == Enum.KeyCode[Config.LockOnKey] then
+		LockOn.toggle()
 	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
 		if not Weapon.isSheathed() then
 			setGuard(true)

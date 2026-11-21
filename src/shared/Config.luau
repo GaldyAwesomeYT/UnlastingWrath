@@ -28,7 +28,10 @@ local Config = {
 	SheatheTime = 0.35,           -- seconds the blade takes to travel between the hip and the ready pose
 	SheathePosition = Vector3.new(-1.1, -0.7, 0.2), -- where the sheathed blade's center sits, in the HumanoidRootPart's space (left hip)
 	SheatheDirection = Vector3.new(0, -0.6, 1),     -- which way the sheathed blade points, in the same space (tip down and back)
-	GuardKey = "F",              -- hold to guard (Enum.KeyCode name)
+	LockOnKey = "Q",              -- toggles lock-on (Enum.KeyCode name). Locked on, the body always faces the opponent and A/D strafe
+	LockOnRange = 80,             -- studs; outside a match, the nearest training dummy within this range is locked
+	LockOnTurnSpeed = 14,         -- how quickly the body turns to face the target (higher = snappier)
+	GuardKey = "F",             -- hold to guard (Enum.KeyCode name)
 	LookButton = "MouseButton2",  -- hold and move the mouse to look around (Enum.UserInputType name); the blade holds still
 	LookSensitivity = 0.003,      -- radians of camera turn per pixel of mouse movement while looking around
 	LookPitchLimit = 70,          -- degrees the camera can look up or down while looking around
