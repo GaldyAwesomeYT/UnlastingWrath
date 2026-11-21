@@ -9,6 +9,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Menu = require(script.Parent.Menu)
 local Weapon = require(script.Parent.Weapon)
+local LockedCamera = require(script.Parent.LockedCamera)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -601,13 +602,26 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Blade swings need no click: the blade follows the mouse (Weapon.luau). Right mouse guards.
+-- Holding Left Alt frees the cursor and locks gameplay input (no dash, no guard) until it's released.
+local guardHeld = false
 local function setGuard(held)
+	guardHeld = held
 	Weapon.setGuard(held)
 	Remotes.Block:FireServer(held)
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or (menu and menu.isOpen()) then return end
+
+	if input.KeyCode == Enum.KeyCode[Config.FreeCursorKey] then
+		Weapon.setFreeKey(true)
+		if guardHeld then
+			setGuard(false) -- dropping the guard when the cursor frees
+		end
+		return
+	end
+
+	if Weapon.isFree() then return end -- locked while the cursor is free
 
 	if input.KeyCode == Enum.KeyCode[Config.DashKey] then
 		startDash()
@@ -619,12 +633,19 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType[Config.GuardButton] then
-		setGuard(false)
+	if input.KeyCode == Enum.KeyCode[Config.FreeCursorKey] then
+		Weapon.setFreeKey(false)
+	elseif input.UserInputType == Enum.UserInputType[Config.GuardButton] then
+		setGuard(false) -- always release, even while the cursor is free
 	end
 end)
 
-Weapon.start()
+Weapon.start(function()
+	return menu ~= nil and menu.isOpen()
+end)
+LockedCamera.start(function()
+	return facingTarget ~= nil -- the duel intro moves the camera itself
+end)
 
 Remotes.Feedback.OnClientEvent:Connect(function(kind, duration)
 	showFeedback(kind)

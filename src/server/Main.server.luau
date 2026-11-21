@@ -48,3 +48,4 @@ CombatService.spawnDummy(Vector3.new(0, 3, -20), {
 	windup = Config.DummyWindup,
 }, "Dummy")
 GameService.start()
+require(script.Parent.BladeService).start()
