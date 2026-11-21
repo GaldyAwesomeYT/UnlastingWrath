@@ -215,7 +215,24 @@ end
 
 -- Moves the virtual cursor by the mouse delta and keeps it inside the circle. Also sets the mouse lock
 -- and shows the cursor area only while the mouse is locked.
+local mouseHeldByUs = false -- true while this script has locked the mouse, so it is released once when the blade is sheathed
+
 local function updateCursor()
+	-- Default mode (blade fully sheathed): no cursor circle, no mouse lock, no look-around. The normal
+	-- Roblox camera and mouse controls take over, so we leave them alone.
+	if Weapon.isDefaultMode() then
+		if mouseHeldByUs then
+			mouseHeldByUs = false
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		end
+		hud.Enabled = false
+		if looking then
+			Weapon.setLooking(false)
+		end
+		return
+	end
+	mouseHeldByUs = true
+
 	local free = Weapon.isFree()
 
 	-- Look button: polled every frame instead of using input events. Roblox's default camera script also
@@ -458,7 +475,7 @@ local function poseHands()
 	if not character:FindFirstChild("Right Arm") then return end
 
 	-- Blade fully sheathed: the default animation takes over the whole body.
-	if sheathed and sheatheBlend >= 1 then
+	if Weapon.isDefaultMode() then
 		if not animationActive then
 			animationActive = true
 			restoreRestPose(character)
@@ -512,7 +529,13 @@ end
 
 -- True while the cursor is free: Left Alt held, or the title menu open. Gameplay input is locked then.
 function Weapon.isFree()
-	return freeKeyHeld or isMenuOpen()
+	return (freeKeyHeld and not Weapon.isDefaultMode()) or isMenuOpen()
+end
+
+-- True once the blade is fully sheathed: the player moves, looks and uses the mouse like in a default
+-- Roblox baseplate (normal camera, free cursor, body turns toward movement). Drawing the blade ends it at once.
+function Weapon.isDefaultMode()
+	return sheathed and sheatheBlend >= 1
 end
 
 -- Left Alt pressed or released (called from Main.client).

@@ -13,7 +13,8 @@ local LockedCamera = {}
 local LOOK_DISTANCE = 50 -- how far ahead the camera looks; keeps the view parallel to the character's facing
 
 -- getLook (optional): returns the look-around yaw (right is positive) and pitch (up is positive), in radians.
-function LockedCamera.start(isBusy, getLook)
+-- isDefaultMode (optional): true while the blade is sheathed; the camera is then Roblox's normal one.
+function LockedCamera.start(isBusy, getLook, isDefaultMode)
 	local player = Players.LocalPlayer
 	local camera = workspace.CurrentCamera
 
@@ -24,10 +25,14 @@ function LockedCamera.start(isBusy, getLook)
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local head = character and character:FindFirstChild("Head")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if not (root and head and humanoid and humanoid.Health > 0) then
-			-- Dead or respawning: give control back to Roblox's default camera.
+		local normal = isDefaultMode ~= nil and isDefaultMode()
+		if normal or not (root and head and humanoid and humanoid.Health > 0) then
+			-- Sheathed, dead or respawning: give control back to Roblox's default camera.
 			if camera.CameraType ~= Enum.CameraType.Custom then
 				camera.CameraType = Enum.CameraType.Custom
+			end
+			if humanoid and camera.CameraSubject ~= humanoid then
+				camera.CameraSubject = humanoid
 			end
 			return
 		end

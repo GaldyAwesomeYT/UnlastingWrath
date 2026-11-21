@@ -521,6 +521,12 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 
+	-- Blade sheathed: normal Roblox movement, the body turns toward where it walks.
+	if Weapon.isDefaultMode() then
+		humanoid.AutoRotate = true
+		return
+	end
+
 	-- The camera is locked to the body's facing, so turning toward a backward move (S) would swing the camera
 	-- around and flip "backward" every frame, spinning the player. Walk backward without turning instead.
 	local move = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
@@ -658,7 +664,7 @@ Weapon.start(function()
 end)
 LockedCamera.start(function()
 	return facingTarget ~= nil -- the duel intro moves the camera itself
-end, Weapon.getLook)
+end, Weapon.getLook, Weapon.isDefaultMode)
 
 Remotes.Feedback.OnClientEvent:Connect(function(kind, duration)
 	showFeedback(kind)
