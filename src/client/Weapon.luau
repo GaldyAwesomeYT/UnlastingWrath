@@ -154,24 +154,51 @@ local function placeMotor(motor, center, travel, hint)
 	end
 end
 
--- Poses one arm so its hand reaches `target`. The arm stretches (up to Config.ArmMaxStretch) or shortens
--- (down to MIN_ARM_SCALE) to fit, in steps of ARM_STEP. Returns the hand position.
+-- The joint's original C1 (where the shoulder sits on the arm part).
+local restC1 = setmetatable({}, { __mode = "k" })
+local function originalC1(motor)
+	if not restC1[motor] then
+		restC1[motor] = motor.C1
+	end
+	return restC1[motor]
+end
+
+-- The shoulder joint sits JOINT_DROP studs below the top of the arm (R6: arm is 2 tall, joint at y = 0.5).
+local JOINT_DROP = 0.5
+
+-- Poses one arm so its hand reaches `target`, with the arm's joint kept exactly on the shoulder.
+-- The arm stretches (up to Config.ArmMaxStretch) or shortens (down to MIN_ARM_SCALE) to fit, in steps
+-- of ARM_STEP. The joint's C1 is moved along the arm as it resizes, so the shoulder end stays attached.
+-- Returns the hand position.
 local function poseArm(character, side, target, look)
 	local shoulder, motor, arm = shoulderOf(character, side)
 	if not shoulder then return nil end
 
 	local rest = restArmLength(arm)
+	local restOne = originalC1(motor)
 	local toTarget = target - shoulder
 	local dist = toTarget.Magnitude
 	local travel = dist > 1e-3 and toTarget.Unit or -Vector3.yAxis
-	local wanted = math.clamp(dist, rest * MIN_ARM_SCALE, rest * Config.ArmMaxStretch)
+	-- The hand is (len - JOINT_DROP) from the joint, so the length that reaches `dist` is dist + JOINT_DROP.
+	local wanted = math.clamp(dist + JOINT_DROP, rest * MIN_ARM_SCALE, rest * Config.ArmMaxStretch)
 	local len = math.floor(wanted / ARM_STEP + 0.5) * ARM_STEP
 
 	if math.abs(arm.Size.Y - len) > 0.001 then
 		arm.Size = Vector3.new(arm.Size.X, len, arm.Size.Z)
 	end
-	placeMotor(motor, shoulder + travel * (len / 2), travel, look)
-	return shoulder + travel * len
+
+	-- Keep the joint JOINT_DROP below the top of the resized arm.
+	local jointY = len / 2 - JOINT_DROP
+	local c1 = restOne - Vector3.new(0, restOne.Position.Y, 0) + Vector3.new(0, jointY, 0)
+	if (motor.C1.Position - c1.Position).Magnitude > 1e-3 then
+		motor.C1 = c1
+	end
+
+	-- Arm orientation, then slide its center so the joint point lands exactly on the shoulder.
+	local rotation = segmentCFrame(Vector3.zero, travel, look)
+	local center = shoulder - rotation:VectorToWorldSpace(c1.Position)
+	placeMotor(motor, center, travel, look)
+	return shoulder + travel * (len - JOINT_DROP)
 end
 
 -- Moves the virtual cursor by the mouse delta and keeps it inside the circle. Also sets the mouse lock
