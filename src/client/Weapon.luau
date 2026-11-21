@@ -519,7 +519,9 @@ local function poseHands()
 	-- Blade being drawn: take the body back from the default animation.
 	if animationActive then
 		animationActive = false
-		setDefaultAnimation(character, false)
+		if not Config.LegAnimation then
+			setDefaultAnimation(character, false)
+		end
 	end
 
 	local look = root.CFrame.LookVector
@@ -553,10 +555,29 @@ local function poseHands()
 		warnOnce("Right arm pose failed: no Torso 'Right Shoulder' motor or 'Right Arm' part found.")
 	end
 
-	if Config.AnimateLegs then
+	-- Legs: with Config.LegAnimation the default animation drives them, so they are left alone here.
+	if Config.LegAnimation then
+		return
+	elseif Config.AnimateLegs then
 		poseLegs(character, root)
 	else
 		restLegs(character)
+	end
+end
+
+-- The default animation runs while the blade is drawn too (Config.LegAnimation), so the legs walk. It
+-- also writes the arms' Transform every frame, after the render step, so it is cleared again right after
+-- each animation update (Heartbeat). The arm pose lives in C0, and a leftover Transform would bend it.
+local function clearArmAnimation()
+	if not Config.LegAnimation or Weapon.isDefaultMode() then return end
+	local character = player.Character
+	local torso = character and character:FindFirstChild("Torso")
+	if not torso then return end
+	for _, name in ipairs({ "Right Shoulder", "Left Shoulder" }) do
+		local motor = torso:FindFirstChild(name)
+		if motor and motor.Transform ~= CFrame.new() then
+			motor.Transform = CFrame.new()
+		end
 	end
 end
 
@@ -628,13 +649,14 @@ function Weapon.start(menuOpenCheck)
 		sheathed = false
 		sheatheBlend = 0
 		animationActive = false
-		setDefaultAnimation(character, false)
+		setDefaultAnimation(character, Config.LegAnimation == true)
 	end
 	if player.Character then
 		onCharacter(player.Character)
 	end
 	player.CharacterAdded:Connect(onCharacter)
 
+	RunService.Heartbeat:Connect(clearArmAnimation)
 	RunService.RenderStepped:Connect(driveCharacterBlade)
 	RunService:BindToRenderStep("BladeHands", Enum.RenderPriority.Last.Value, poseHands)
 end
