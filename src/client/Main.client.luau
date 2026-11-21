@@ -378,39 +378,91 @@ local function restoreFollowCamera()
 	end
 end
 
--- Round start duel intro: a side shot framing both fighters, about 12 studs from their midpoint.
--- The server freezes the fighters for the same time; this only moves the camera.
+-- Round start duel intro. The server freezes both fighters for the total of the Config.Duel*
+-- times; this only moves the camera. Shot order:
+--   1. wide, level, side-on shot of both fighters
+--   2. close on fighter A's midsection and hands
+--   3. close on fighter B's midsection and hands
+--   4. wide shot again
+--   5. pan from the wide shot to this player's normal follow view
 -- If this player's character dies or is replaced during the intro, the follow camera is restored at once.
+local function smoothstep(t)
+	return t * t * (3 - 2 * t)
+end
+
+local function rootOf(p)
+	return p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+end
+
 local function playDuelIntro(fighters)
 	local myCharacter = player.Character
-	local myRoot = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
-	local otherPlayer = (fighters[1] == player) and fighters[2] or fighters[1]
-	local otherRoot = otherPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not (myRoot and otherRoot) then return end
+	local myRoot = rootOf(player)
+	local rootA, rootB = rootOf(fighters[1]), rootOf(fighters[2])
+	if not (myRoot and rootA and rootB) then return end
 
 	-- Lock this fighter facing the opponent for the intro (overrides Manual-mode aiming).
+	local otherPlayer = (fighters[1] == player) and fighters[2] or fighters[1]
 	facingTarget = otherPlayer
 	camera.CameraType = Enum.CameraType.Scriptable
 
-	local started = os.clock()
-	local connection
-	connection = RunService.RenderStepped:Connect(function()
+	local function isAborted()
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		local aborted = player.Character ~= myCharacter or not humanoid or humanoid.Health <= 0
-		if aborted or os.clock() - started >= Config.DuelIntroTime then
-			connection:Disconnect()
-			facingTarget = nil
-			restoreFollowCamera()
-			return
-		end
+		return player.Character ~= myCharacter or not humanoid or humanoid.Health <= 0
+	end
 
-		local between = Vector3.new(otherRoot.Position.X - myRoot.Position.X, 0, otherRoot.Position.Z - myRoot.Position.Z)
-		if between.Magnitude < 0.01 then return end
-		local mid = (myRoot.Position + otherRoot.Position) / 2
+	-- Level, side-on wide shot of both fighters, about 12 studs from their midpoint.
+	local function wideShot()
+		local between = Vector3.new(rootB.Position.X - rootA.Position.X, 0, rootB.Position.Z - rootA.Position.Z)
+		local mid = (rootA.Position + rootB.Position) / 2
+		if between.Magnitude < 0.01 then
+			return CFrame.lookAt(mid + Vector3.new(12, 0, 0), mid)
+		end
 		local side = Vector3.yAxis:Cross(between.Unit)
-		-- 11.5 sideways + 3.5 up: about 12 studs from the midpoint.
-		camera.CFrame = CFrame.lookAt(mid + side * 11.5 + Vector3.new(0, 3.5, 0), mid + Vector3.new(0, 2, 0))
-	end)
+		return CFrame.lookAt(mid + side * 12, mid)
+	end
+
+	-- Close shot on one fighter's midsection and hands, from in front so the hands show.
+	local function closeShot(fighterRoot)
+		local look = Vector3.new(fighterRoot.CFrame.LookVector.X, 0, fighterRoot.CFrame.LookVector.Z)
+		if look.Magnitude < 0.01 then
+			look = Vector3.new(0, 0, 1)
+		end
+		local focus = fighterRoot.Position
+		return CFrame.lookAt(focus + look.Unit * 4 + Vector3.new(0, 0.5, 0), focus + Vector3.new(0, -0.3, 0))
+	end
+
+	-- Plays one shot for `duration` seconds. cframeFn receives progress 0 → 1.
+	-- Returns false if the character died or was replaced.
+	local function runShot(duration, cframeFn)
+		local started = os.clock()
+		while true do
+			if isAborted() then return false end
+			local alpha = math.clamp((os.clock() - started) / duration, 0, 1)
+			camera.CFrame = cframeFn(alpha)
+			if alpha >= 1 then return true end
+			RunService.RenderStepped:Wait()
+		end
+	end
+
+	local completed = runShot(Config.DuelWideTime, wideShot)
+		and runShot(Config.DuelCloseTime, function() return closeShot(rootA) end)
+		and runShot(Config.DuelCloseTime, function() return closeShot(rootB) end)
+		and runShot(Config.DuelReturnTime, wideShot)
+
+	if completed then
+		local wideEnd = wideShot()
+		-- Normal Roblox follow view: a little behind and above this player's character.
+		local follow = CFrame.lookAt(
+			myRoot.Position - myRoot.CFrame.LookVector * 8 + Vector3.new(0, 3, 0),
+			myRoot.Position + Vector3.new(0, 1.5, 0)
+		)
+		runShot(Config.DuelPanTime, function(alpha)
+			return wideEnd:Lerp(follow, smoothstep(alpha))
+		end)
+	end
+
+	facingTarget = nil
+	restoreFollowCamera()
 end
 
 Remotes.MatchStart.OnClientEvent:Connect(function(fighters)

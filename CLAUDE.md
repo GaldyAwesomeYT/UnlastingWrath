@@ -21,7 +21,7 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 ## Rules
 - Combat logic stays on the server. The client only sends intent (attack, parry) and displays results.
 - Player-vs-player combat is only allowed between the two fighters while `RoundState.active` is true. The training dummy always works.
-- At round start the server freezes the fighters and pauses combat for `Config.DuelIntroTime`. The camera is client-only and uses Roblox's built-in camera APIs.
+- At round start the server freezes the fighters and pauses combat for the duel intro's total time (the `Config.Duel*` values). The camera is client-only and uses Roblox's built-in camera APIs.
 - Matches are 1v1 from a ready-up queue: a match starts only after `Config.MatchSize` players press Ready and stay ready through `Config.LobbyCountdown`. Everyone must press Ready again for the next match. Fighters spawn at x = ±12 on the arena's center line, facing each other (`startMatch` in `GameService`; assumes `MatchSize` = 2).
 - Keep the two control modes working: Simple (click attacks nearest enemy in front) and Manual (character faces cursor, click swings at what's under it). Toggle with M. Tab toggles the scoreboard (moved off Tab so the two don't clash).
 - After every kill, combat pauses for `Config.KillResetCountdown` seconds, then all living players are healed to full. Kill counts live on the server; clients get them via the `Scores` remote.
@@ -34,5 +34,5 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - Scoreboard (Tab) with per-round kills, and post-kill reset countdown with full heal: written, not yet tested in Studio.
 - Dash (Shift, `Config.DashKey`): the client drives the movement with a LinearVelocity (the client owns its physics); the server only checks cooldown and grants the dodge window, so attacks show "DODGE!". Opponent HP bar top-right (only the other fighter, only during a match; `MatchStart` sends `{}` when a match ends): written, not yet tested in Studio.
 - Ready-up queue (Ready button, 1v1 once 2 players are ready, countdown cancels if someone unreadies): written, not yet tested in Studio.
-- Round duel intro (fighters only): the server anchors both fighters and pauses combat for `Config.DuelIntroTime` (1.5s), and fires `MatchStart`. The client moves only the camera to a side shot about 12 studs from the midpoint, then restores the follow camera. If the local character dies during the intro, the follow camera is restored immediately. Written, not yet tested in Studio.
+- Round duel intro (fighters only): the server anchors both fighters and pauses combat for the sum of `Config.DuelWideTime`, `DuelCloseTime` (×2), `DuelReturnTime`, and `DuelPanTime` (5.0s), and fires `MatchStart`. The client moves only the camera: wide level side-on shot, close on each fighter's midsection and hands, wide shot again, then pan to the normal follow view. If the local character dies during the intro, the follow camera is restored immediately. Written, not yet tested in Studio.
 - Next planned: balance tuning, lobby/spawn/map polish.

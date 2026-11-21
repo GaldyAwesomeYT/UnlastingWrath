@@ -194,7 +194,8 @@ local function startMatch()
 	end
 	Remotes.MatchStart:FireAllClients(fighters)
 	broadcastScores()
-	task.wait(Config.DuelIntroTime)
+	local introTime = Config.DuelWideTime + 2 * Config.DuelCloseTime + Config.DuelReturnTime + Config.DuelPanTime
+	task.wait(introTime)
 
 	-- Unfreeze and return to play. A root that was destroyed (the character died) is skipped.
 	for _, root in ipairs(frozenRoots) do

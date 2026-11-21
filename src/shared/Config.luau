@@ -20,7 +20,12 @@ local Config = {
 	MatchSize = 2,            -- players who must press Ready before the lobby countdown starts (1v1)
 	LobbyCountdown = 5,       -- seconds before each match starts (ready players must stay ready)
 	IntermissionTime = 5,     -- seconds after a round ends
-	DuelIntroTime = 1.5,      -- round start: seconds both fighters are frozen while the side camera shot plays
+	-- Round start duel intro: wide shot, close on fighter A, close on fighter B, wide shot, pan to follow view.
+	-- The server freezes both fighters for the sum of these.
+	DuelWideTime = 1.2,       -- first wide shot (level, side-on)
+	DuelCloseTime = 1.0,      -- each close-up of a fighter's midsection and hands
+	DuelReturnTime = 0.8,     -- wide shot again before the pan
+	DuelPanTime = 1.0,        -- pan from the wide shot to the fighter's normal view
 	RespawnTime = 3,          -- seconds until a dead player respawn
 	KillCredit = 6,           -- a kill counts if the victim was hit by the killer this recently
 	KillResetCountdown = 3,   -- after each kill: combat pauses this many seconds, then everyone is healed to full
