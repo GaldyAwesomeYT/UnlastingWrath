@@ -153,6 +153,42 @@ if player.Character then
 end
 player.CharacterAdded:Connect(bindHealth)
 
+-- Stun bar (under the health bar). Shows remaining stun time; hidden when not stunned.
+-- The server sends only the duration; the countdown runs locally from when it arrives.
+local stunBack = Instance.new("Frame")
+stunBack.Name = "StunBack"
+stunBack.Size = UDim2.fromOffset(260, 12)
+stunBack.Position = UDim2.new(0, 16, 1, -68)
+stunBack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+stunBack.BorderSizePixel = 0
+stunBack.Visible = false
+stunBack.Parent = gui
+
+local stunFill = Instance.new("Frame")
+stunFill.Name = "Fill"
+stunFill.Size = UDim2.fromScale(1, 1)
+stunFill.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+stunFill.BorderSizePixel = 0
+stunFill.Parent = stunBack
+
+local stunEnd = 0
+local stunDuration = 1
+
+local function startStun(duration)
+	stunDuration = math.max(duration, 0.01)
+	stunEnd = os.clock() + stunDuration
+end
+
+RunService.RenderStepped:Connect(function()
+	local remaining = stunEnd - os.clock()
+	if remaining <= 0 then
+		stunBack.Visible = false
+		return
+	end
+	stunBack.Visible = true
+	stunFill.Size = UDim2.fromScale(math.clamp(remaining / stunDuration, 0, 1), 1)
+end)
+
 -- World point under the mouse cursor.
 local function cursorAim()
 	local mouse = UserInputService:GetMouseLocation()
@@ -201,7 +237,12 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end)
 
-Remotes.Feedback.OnClientEvent:Connect(showFeedback)
+Remotes.Feedback.OnClientEvent:Connect(function(kind, duration)
+	showFeedback(kind)
+	if kind == "Stunned" and type(duration) == "number" then
+		startStun(duration)
+	end
+end)
 Remotes.Round.OnClientEvent:Connect(function(message)
 	statusLabel.Text = message
 end)

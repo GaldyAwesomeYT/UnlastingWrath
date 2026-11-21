@@ -23,10 +23,10 @@ local function getState(character)
 	return s
 end
 
-local function notify(character, kind)
+local function notify(character, kind, duration)
 	local player = Players:GetPlayerFromCharacter(character)
 	if player then
-		Remotes.Feedback:FireClient(player, kind)
+		Remotes.Feedback:FireClient(player, kind, duration)
 	end
 end
 
@@ -60,7 +60,7 @@ local function resolveHit(attacker, target)
 		targetState.parryStart = -math.huge
 		getState(attacker).stunnedUntil = now + Config.ParryStunDuration
 		notify(target, "Parried")
-		notify(attacker, "Stunned")
+		notify(attacker, "Stunned", Config.ParryStunDuration)
 		return
 	end
 
