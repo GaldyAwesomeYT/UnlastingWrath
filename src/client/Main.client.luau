@@ -410,25 +410,31 @@ local function playDuelIntro(fighters)
 		return player.Character ~= myCharacter or not humanoid or humanoid.Health <= 0
 	end
 
-	-- Level, side-on wide shot of both fighters, about 12 studs from their midpoint.
-	local function wideShot()
+	-- The camera side: the same side for every shot, so the cuts stay on one axis.
+	local function cameraSide()
 		local between = Vector3.new(rootB.Position.X - rootA.Position.X, 0, rootB.Position.Z - rootA.Position.Z)
-		local mid = (rootA.Position + rootB.Position) / 2
 		if between.Magnitude < 0.01 then
-			return CFrame.lookAt(mid + Vector3.new(12, 0, 0), mid)
+			return Vector3.new(1, 0, 0)
 		end
-		local side = Vector3.yAxis:Cross(between.Unit)
-		return CFrame.lookAt(mid + side * 12, mid)
+		return Vector3.yAxis:Cross(between.Unit)
 	end
 
-	-- Close shot on one fighter's midsection and hands, from in front so the hands show.
+	-- Level, side-on wide shot of both fighters, about 12 studs from their midpoint.
+	local function wideShot()
+		local mid = (rootA.Position + rootB.Position) / 2
+		return CFrame.lookAt(mid + cameraSide() * 12, mid)
+	end
+
+	-- Diagonal close shot on one fighter's midsection: from the camera side and partly in front
+	-- (about 45 degrees), so the hands and any weapon at the hip are in frame.
 	local function closeShot(fighterRoot)
 		local look = Vector3.new(fighterRoot.CFrame.LookVector.X, 0, fighterRoot.CFrame.LookVector.Z)
 		if look.Magnitude < 0.01 then
 			look = Vector3.new(0, 0, 1)
 		end
+		local offset = (look.Unit * 0.7 + cameraSide() * 0.7) * 4.5
 		local focus = fighterRoot.Position
-		return CFrame.lookAt(focus + look.Unit * 4 + Vector3.new(0, 0.5, 0), focus + Vector3.new(0, -0.3, 0))
+		return CFrame.lookAt(focus + offset + Vector3.new(0, 0.5, 0), focus + Vector3.new(0, -0.3, 0))
 	end
 
 	-- Plays one shot for `duration` seconds. cframeFn receives progress 0 → 1.
