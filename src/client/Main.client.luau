@@ -7,13 +7,14 @@ local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Menu = require(script.Parent.Menu)
+local Weapon = require(script.Parent.Weapon)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- "Simple": click attacks the nearest enemy in front of you.
--- "Manual": your character turns to the cursor and click swings at whatever is under it.
-local mode = "Simple"
+-- Title menu handle, set at the end of this script. While the menu is open, gameplay input is ignored.
+local menu
 
 -- HUD
 local gui = Instance.new("ScreenGui")
@@ -22,7 +23,7 @@ gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local modeLabel = Instance.new("TextLabel")
-modeLabel.Size = UDim2.fromOffset(300, 30)
+modeLabel.Size = UDim2.fromOffset(460, 30)
 modeLabel.Position = UDim2.fromOffset(16, 16)
 modeLabel.BackgroundColor3 = Color3.new(0, 0, 0)
 modeLabel.BackgroundTransparency = 0.5
@@ -31,6 +32,25 @@ modeLabel.Font = Enum.Font.GothamBold
 modeLabel.TextSize = 18
 modeLabel.TextXAlignment = Enum.TextXAlignment.Left
 modeLabel.Parent = gui
+
+-- MENU button (top-left, under the mode label): reopens the title menu.
+local menuButton = Instance.new("TextButton")
+menuButton.Name = "MenuButton"
+menuButton.Size = UDim2.fromOffset(100, 30)
+menuButton.Position = UDim2.fromOffset(16, 52)
+menuButton.BackgroundColor3 = Color3.new(0, 0, 0)
+menuButton.BackgroundTransparency = 0.5
+menuButton.BorderSizePixel = 0
+menuButton.Font = Enum.Font.GothamBold
+menuButton.TextSize = 16
+menuButton.TextColor3 = Color3.new(1, 1, 1)
+menuButton.Text = "MENU"
+menuButton.Parent = gui
+menuButton.Activated:Connect(function()
+	if menu then
+		menu.open()
+	end
+end)
 
 local feedbackLabel = Instance.new("TextLabel")
 feedbackLabel.Size = UDim2.new(0, 400, 0, 60)
@@ -43,7 +63,7 @@ feedbackLabel.Text = ""
 feedbackLabel.Parent = gui
 
 local FEEDBACK = {
-	Telegraph = { text = "PARRY! (F)", color = Color3.fromRGB(255, 220, 60) },
+	Telegraph = { text = "GUARD!", color = Color3.fromRGB(255, 220, 60) },
 	Parried = { text = "PARRIED!", color = Color3.fromRGB(80, 255, 120) },
 	Stunned = { text = "STUNNED", color = Color3.fromRGB(255, 80, 80) },
 	Hit = { text = "HIT", color = Color3.fromRGB(255, 255, 255) },
@@ -101,10 +121,7 @@ local function showFeedback(kind)
 	end)
 end
 
-local function updateModeLabel()
-	modeLabel.Text = "  Mode: " .. mode .. "  (M to switch, Tab: scores)"
-end
-updateModeLabel()
+modeLabel.Text = "  Mouse: swing blade  |  RMB: guard  |  Tab: scores"
 
 -- Scoreboard (Tab toggles it): every player's kills this round, highest first.
 local board = Instance.new("Frame")
@@ -352,6 +369,7 @@ readyButton.TextSize = 20
 readyButton.TextColor3 = Color3.new(1, 1, 1)
 readyButton.BorderSizePixel = 0
 readyButton.Parent = gui
+readyButton.Visible = false -- shown after Play in Duel mode (see the title menu's onPlay below)
 
 local isReady = false
 local function setReadyLocal(value)
@@ -401,7 +419,7 @@ local function playDuelIntro(fighters)
 	local rootA, rootB = rootOf(fighters[1]), rootOf(fighters[2])
 	if not (myRoot and rootA and rootB) then return end
 
-	-- Lock this fighter facing the opponent for the intro (overrides Manual-mode aiming).
+	-- Lock this fighter facing the opponent for the intro.
 	local otherPlayer = (fighters[1] == player) and fighters[2] or fighters[1]
 	facingTarget = otherPlayer
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -482,18 +500,7 @@ Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
 	end
 end)
 
--- World point under the mouse cursor.
-local function cursorAim()
-	local mouse = UserInputService:GetMouseLocation()
-	local ray = camera:ViewportPointToRay(mouse.X, mouse.Y)
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { player.Character }
-	local result = workspace:Raycast(ray.Origin, ray.Direction * 500, params)
-	return result and result.Position or (ray.Origin + ray.Direction * 100)
-end
-
--- Manual mode: the character turns to face the cursor.
+-- Body facing: the character turns toward its movement (Roblox default). The duel intro overrides it.
 RunService.RenderStepped:Connect(function()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -513,17 +520,7 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 
-	if mode ~= "Manual" then
-		humanoid.AutoRotate = true
-		return
-	end
-
-	humanoid.AutoRotate = false
-	local aim = cursorAim()
-	local flat = Vector3.new(aim.X, root.Position.Y, aim.Z)
-	if (flat - root.Position).Magnitude > 0.5 then
-		root.CFrame = CFrame.lookAt(root.Position, flat)
-	end
+	humanoid.AutoRotate = true
 end)
 
 -- Dash: the client drives its own character with a horizontal LinearVelocity for
@@ -603,35 +600,31 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then return end
+-- Blade swings need no click: the blade follows the mouse (Weapon.luau). Right mouse guards.
+local function setGuard(held)
+	Weapon.setGuard(held)
+	Remotes.Block:FireServer(held)
+end
 
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		if mode == "Manual" then
-			Remotes.Attack:FireServer(mode, cursorAim())
-		else
-			Remotes.Attack:FireServer(mode)
-		end
-	elseif input.KeyCode == Enum.KeyCode[Config.DashKey] then
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or (menu and menu.isOpen()) then return end
+
+	if input.KeyCode == Enum.KeyCode[Config.DashKey] then
 		startDash()
-	elseif input.KeyCode == Enum.KeyCode[Config.BlockKey] then
-		Remotes.Block:FireServer(true)
-	elseif input.KeyCode == Enum.KeyCode.F then
-		Remotes.Parry:FireServer()
-	elseif input.KeyCode == Enum.KeyCode.M then
-		mode = (mode == "Simple") and "Manual" or "Simple"
-		updateModeLabel()
+	elseif input.UserInputType == Enum.UserInputType[Config.GuardButton] then
+		setGuard(true)
 	elseif input.KeyCode == Enum.KeyCode.Tab then
 		board.Visible = not board.Visible
 	end
 end)
 
--- Releasing the block key stops blocking on the server.
 UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode[Config.BlockKey] then
-		Remotes.Block:FireServer(false)
+	if input.UserInputType == Enum.UserInputType[Config.GuardButton] then
+		setGuard(false)
 	end
 end)
+
+Weapon.start()
 
 Remotes.Feedback.OnClientEvent:Connect(function(kind, duration)
 	showFeedback(kind)
@@ -643,3 +636,15 @@ Remotes.Round.OnClientEvent:Connect(function(message)
 	statusLabel.Text = message
 end)
 Remotes.Scores.OnClientEvent:Connect(renderScores)
+
+-- Title menu (opens right away; the loading screen covers it until the game has loaded).
+menu = Menu.start({
+	onPlay = function(gameMode, difficulty)
+		-- Duel uses the Ready queue. Training doesn't, so the Ready button is hidden there.
+		readyButton.Visible = gameMode == "Duel"
+		if gameMode ~= "Duel" then
+			setReadyLocal(false)
+		end
+		Remotes.Options:FireServer(gameMode, difficulty)
+	end,
+})

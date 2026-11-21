@@ -9,7 +9,7 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - Test with Studio's Play button. There is no automated test suite yet.
 
 ## Layout
-- `default.project.json`: maps `src/server` → ServerScriptService/Server, `src/client` → StarterPlayerScripts/Client, `src/shared` → ReplicatedStorage/Shared.
+- `default.project.json`: maps `src/server` → ServerScriptService/Server, `src/client` → StarterPlayerScripts/Client, `src/shared` → ReplicatedStorage/Shared, `src/replicatedfirst` → ReplicatedFirst (loading screen; restart `rojo serve` after changing this file).
 - `src/shared/Config.luau`: all tuning numbers. Change values here, not in logic.
 - `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round, Scores, Dash, Ready, ReadyState, MatchStart). Server creates them.
 - `src/server/CombatService.luau`: server-authoritative attacks, parries, stuns, kill credit, and dummy AI.

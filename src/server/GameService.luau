@@ -7,6 +7,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RoundState = require(script.Parent.RoundState)
 local CombatService = require(script.Parent.CombatService)
+local TrainingService = require(script.Parent.TrainingService)
 
 local GameService = {}
 
@@ -29,14 +30,32 @@ local function broadcastScores()
 	Remotes.Scores:FireAllClients(list)
 end
 
-local function readyCount()
-	local n = 0
-	for player in pairs(ready) do
-		if player.Parent == Players then
-			n = n + 1
+-- Players who are ready and still in the server, in join order.
+local function readyPlayers()
+	local list = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if ready[player] then
+			table.insert(list, player)
 		end
 	end
-	return n
+	return list
+end
+
+local function readyCount()
+	return #readyPlayers()
+end
+
+-- Lobby text: who is queued, e.g. "Ready: Alice - need 1 more".
+local function queueText()
+	local names = {}
+	for _, player in ipairs(readyPlayers()) do
+		table.insert(names, player.Name)
+	end
+	local needed = Config.MatchSize - #names
+	if #names == 0 then
+		return "Lobby: press Ready to queue (" .. Config.MatchSize .. " players per match)"
+	end
+	return "Ready: " .. table.concat(names, ", ") .. " - need " .. needed .. " more"
 end
 
 -- The first MatchSize ready players, in join order.
@@ -51,7 +70,10 @@ local function pickFighters()
 end
 
 -- Fighter start positions: opposite sides of the arena, each facing the other.
-local SPAWN_SPOTS = { Vector3.new(-12, 3, 0), Vector3.new(12, 3, 0) }
+local SPAWN_SPOTS = {
+	Vector3.new(-Config.FighterSpawnX, Config.FighterSpawnY, 0),
+	Vector3.new(Config.FighterSpawnX, Config.FighterSpawnY, 0),
+}
 local matchFighters = {} -- the current match's fighters, in SPAWN_SPOTS order
 
 -- Moves each fighter to their spot, facing the other fighter.
@@ -139,9 +161,29 @@ local function bindPlayer(player)
 	end
 end
 
--- Ready button: toggles a player's queue status. Ignored while a match is running.
+-- Title menu Play: applies the chosen game mode and training difficulty. Duel players queue with
+-- Ready; Training players get their own dummy and leave the queue. Ignored for a fighter mid-match.
+local function setOptions(player, gameMode, difficulty)
+	if RoundState.active and RoundState.fighters[player] then return end
+	if not table.find(Config.GameModes, gameMode) then
+		gameMode = Config.DefaultGameMode
+	end
+	if type(difficulty) ~= "string" or not Config.Difficulties[difficulty] then
+		difficulty = Config.DefaultDifficulty
+	end
+
+	if gameMode == "Training" then
+		ready[player] = nil
+		Remotes.ReadyState:FireClient(player, false)
+		TrainingService.start(player, difficulty)
+	else
+		TrainingService.stop(player)
+	end
+end
+
+-- Ready button: toggles a player's queue status. Ignored while a match is running or in training.
 local function setReady(player, wantReady)
-	if RoundState.active then
+	if RoundState.active or TrainingService.isTraining(player) then
 		Remotes.ReadyState:FireClient(player, false)
 		return
 	end
@@ -150,6 +192,7 @@ end
 
 local function onPlayerRemoving(player)
 	ready[player] = nil
+	TrainingService.stop(player)
 	if RoundState.active and RoundState.fighters[player] then
 		RoundState.active = false
 		broadcast(player.Name .. " left - match over")
@@ -160,7 +203,7 @@ end
 local function waitForQueue()
 	local last = nil
 	while readyCount() < Config.MatchSize do
-		local message = "Queue: " .. readyCount() .. "/" .. Config.MatchSize .. " ready - press Ready"
+		local message = queueText()
 		if message ~= last then
 			broadcast(message)
 			last = message
@@ -170,12 +213,18 @@ local function waitForQueue()
 end
 
 -- Returns true if the countdown finished with enough players still ready.
+-- Shows who is in the match, e.g. "Alice vs Bob - starts in 3".
 local function lobbyCountdown()
 	for seconds = Config.LobbyCountdown, 1, -1 do
-		if readyCount() < Config.MatchSize then
+		local players = readyPlayers()
+		if #players < Config.MatchSize then
 			return false
 		end
-		broadcast("Match starts in " .. seconds)
+		local names = {}
+		for i = 1, Config.MatchSize do
+			table.insert(names, players[i].Name)
+		end
+		broadcast(table.concat(names, " vs ") .. " - starts in " .. seconds)
 		task.wait(1)
 	end
 	return readyCount() >= Config.MatchSize
@@ -268,6 +317,7 @@ function GameService.start()
 	Players.PlayerAdded:Connect(bindPlayer)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	Remotes.Ready.OnServerEvent:Connect(setReady)
+	Remotes.Options.OnServerEvent:Connect(setOptions)
 	task.spawn(runLoop)
 end
 

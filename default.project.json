@@ -6,6 +6,10 @@
       "$className": "ReplicatedStorage",
       "Shared": { "$path": "src/shared" }
     },
+    "ReplicatedFirst": {
+      "$className": "ReplicatedFirst",
+      "$path": "src/replicatedfirst"
+    },
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": { "$path": "src/server" }
