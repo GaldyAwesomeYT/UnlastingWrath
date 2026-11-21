@@ -11,7 +11,8 @@
 --     arm stretches or shortens to reach, within Config.ArmMaxStretch. Length changes in steps, so the
 --     arm isn't resized every frame.
 -- Arms are posed through the shoulder Motor6D C0 each frame, with Transform kept at identity.
--- The default R6 Animate script is turned off for the character (see disableDefaultAnimation).
+-- The default R6 Animate script is turned off while the blade is drawn, and back on once it is fully
+-- sheathed (see setDefaultAnimation and poseHands).
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -398,6 +399,54 @@ local function poseLegs(character, root)
 	end
 end
 
+-- The default R6 animation (the Animate script) writes every limb each frame, which overwrites the
+-- arm pose. It is off while the blade is drawn (and tracks it already started are stopped), and on
+-- while the blade is sheathed. The legs lose their walk animation while it is off.
+local function setDefaultAnimation(character, enabled)
+	task.spawn(function()
+		local animate = character:WaitForChild("Animate", 5)
+		if animate and animate:IsA("LocalScript") then
+			animate.Disabled = not enabled
+		end
+		if enabled then return end
+		local humanoid = character:WaitForChild("Humanoid", 5)
+		local animator = humanoid and humanoid:WaitForChild("Animator", 5)
+		if animator then
+			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+				track:Stop(0)
+			end
+		end
+	end)
+end
+
+-- True while the default animation is running (blade fully sheathed). The hand and leg posing steps aside.
+local animationActive = false
+
+-- Puts the limbs back to their original sizes and joint offsets, so the default animation starts from
+-- the standard R6 body (the arm posing stretched the arms and moved their joints).
+local function restoreRestPose(character)
+	local torso = character:FindFirstChild("Torso")
+	if not torso then return end
+	for _, name in ipairs({ "Right Shoulder", "Left Shoulder", "Right Hip", "Left Hip" }) do
+		local motor = torso:FindFirstChild(name)
+		if motor then
+			if restC0[motor] then
+				motor.C0 = restC0[motor]
+			end
+			if restC1[motor] then
+				motor.C1 = restC1[motor]
+			end
+			motor.Transform = CFrame.new()
+		end
+	end
+	for _, side in ipairs({ "Right", "Left" }) do
+		local arm = character:FindFirstChild(side .. " Arm")
+		if arm and restArm[arm] then
+			arm.Size = Vector3.new(arm.Size.X, restArm[arm], arm.Size.Z)
+		end
+	end
+end
+
 -- Every frame, after the animator: both hands on the blade.
 local function poseHands()
 	local character = player.Character
@@ -407,6 +456,21 @@ local function poseHands()
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not (root and humanoid and humanoid.Health > 0) then return end
 	if not character:FindFirstChild("Right Arm") then return end
+
+	-- Blade fully sheathed: the default animation takes over the whole body.
+	if sheathed and sheatheBlend >= 1 then
+		if not animationActive then
+			animationActive = true
+			restoreRestPose(character)
+			setDefaultAnimation(character, true)
+		end
+		return
+	end
+	-- Blade being drawn: take the body back from the default animation.
+	if animationActive then
+		animationActive = false
+		setDefaultAnimation(character, false)
+	end
 
 	local look = root.CFrame.LookVector
 	local blade = character:FindFirstChild("Blade")
@@ -444,25 +508,6 @@ local function poseHands()
 	else
 		restLegs(character)
 	end
-end
-
--- The default R6 animation (the Animate script) writes every limb each frame, which overwrites the
--- arm pose. Turn it off for this character and stop any tracks it already started. The legs lose
--- their walk animation too, since the script drives them as well.
-local function disableDefaultAnimation(character)
-	task.spawn(function()
-		local animate = character:WaitForChild("Animate", 5)
-		if animate and animate:IsA("LocalScript") then
-			animate.Disabled = true
-		end
-		local humanoid = character:WaitForChild("Humanoid", 5)
-		local animator = humanoid and humanoid:WaitForChild("Animator", 5)
-		if animator then
-			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-				track:Stop(0)
-			end
-		end
-	end)
 end
 
 -- True while the cursor is free: Left Alt held, or the title menu open. Gameplay input is locked then.
@@ -526,7 +571,8 @@ function Weapon.start(menuOpenCheck)
 		-- A new character starts with the blade drawn (the server's state for it starts that way too).
 		sheathed = false
 		sheatheBlend = 0
-		disableDefaultAnimation(character)
+		animationActive = false
+		setDefaultAnimation(character, false)
 	end
 	if player.Character then
 		onCharacter(player.Character)
