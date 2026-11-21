@@ -352,12 +352,18 @@ readyButton.Activated:Connect(function()
 end)
 Remotes.ReadyState.OnClientEvent:Connect(setReadyLocal)
 
+-- While set, this character is locked facing this Player (used during the match intro).
+local facingTarget = nil
+
 -- Match intro: a wide shot of both fighters, then this player's camera pans to its normal view.
 local function playMatchIntro(fighters)
 	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local otherPlayer = (fighters[1] == player) and fighters[2] or fighters[1]
 	local otherRoot = otherPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if not (myRoot and otherRoot) then return end
+
+	-- Lock this fighter facing the opponent for the whole intro (overrides Manual-mode aiming).
+	facingTarget = otherPlayer
 
 	local mid = (myRoot.Position + otherRoot.Position) / 2
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -376,6 +382,7 @@ local function playMatchIntro(fighters)
 	)
 	tween:Play()
 	tween.Completed:Wait()
+	facingTarget = nil
 	camera.CameraType = Enum.CameraType.Custom
 end
 
@@ -405,6 +412,19 @@ RunService.RenderStepped:Connect(function()
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not (humanoid and root and humanoid.Health > 0) then return end
+
+	-- Match intro: hold the fighter facing the opponent, ignoring cursor aiming.
+	if facingTarget then
+		humanoid.AutoRotate = false
+		local otherRoot = facingTarget.Character and facingTarget.Character:FindFirstChild("HumanoidRootPart")
+		if otherRoot then
+			local flat = Vector3.new(otherRoot.Position.X, root.Position.Y, otherRoot.Position.Z)
+			if (flat - root.Position).Magnitude > 0.5 then
+				root.CFrame = CFrame.lookAt(root.Position, flat)
+			end
+		end
+		return
+	end
 
 	if mode ~= "Manual" then
 		humanoid.AutoRotate = true
