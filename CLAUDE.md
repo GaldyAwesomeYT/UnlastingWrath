@@ -27,4 +27,5 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 
 ## Current status
 - Working and tested in Studio: attacks, parries, stun, dummy AI, health bar, round countdown, kill counter, parry screen flash.
-- Next planned: stun timer, balance tuning, lobby/spawn/map polish, scoreboard.
+- Stun timer (HUD bar under health, counts down the parry stun; server sends only the duration): written, not yet tested in Studio.
+- Next planned: balance tuning, lobby/spawn/map polish, scoreboard.
