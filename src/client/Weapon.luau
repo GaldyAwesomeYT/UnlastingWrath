@@ -38,6 +38,14 @@ local guardBlend = 0
 local sheathed = false
 local sheatheBlend = 0
 
+-- Quick draw: with the blade sheathed, hold Config.QuickDrawButton and swing the mouse right, up or down
+-- to draw and slash. `slash` is the slash in progress ({ direction = "Right"/"Up"/"Down", t = seconds }),
+-- `swing` is the mouse movement collected while the button is held, and `swingArmed` says whether a
+-- swing is being collected right now.
+local slash = nil
+local swing = Vector2.zero
+local swingArmed = false
+
 -- Virtual cursor: an offset in pixels from the screen center, kept inside a circle.
 local aimOffset = Vector2.zero
 local aimRadius = 1
@@ -355,6 +363,23 @@ local function driveBlade(character, root)
 		local mixed = dir:Lerp(hipDir, t)
 		dir = mixed.Magnitude > 1e-3 and mixed.Unit or hipDir
 	end
+
+	-- Quick-draw slash: the blade sweeps through an arc in front of the body, ending the swing in
+	-- Config.QuickDrawTime. Fast out, settling at the end.
+	if slash and slash.t < Config.QuickDrawTime then
+		local e = math.clamp(slash.t / Config.QuickDrawTime, 0, 1)
+		e = 1 - (1 - e) * (1 - e)
+		local turn
+		if slash.direction == "Right" then
+			turn = CFrame.Angles(0, math.rad(70 - 140 * e), 0) -- from the left, across to the right
+		elseif slash.direction == "Up" then
+			turn = CFrame.Angles(math.rad(-40 + 110 * e), 0, 0) -- from low, up
+		else
+			turn = CFrame.Angles(math.rad(70 - 110 * e), 0, 0) -- from high, down
+		end
+		dir = (root.CFrame * turn).LookVector
+		center = root.CFrame * Config.WeaponGripTarget + dir * HALF
+	end
 	position.Position = center
 	local up = if math.abs(dir.Y) > 0.99 then Vector3.zAxis else Vector3.yAxis
 	orientation.CFrame = CFrame.lookAt(center, center + dir, up)
@@ -386,7 +411,55 @@ local function setMovementLocked(locked)
 	end
 end
 
+-- Starts a quick-draw slash: the blade is drawn at once and sweeps in `direction`. The server is told, so
+-- it can confirm the draw and give the slash its damage bonus.
+local function startQuickDraw(direction)
+	sheathed = false
+	sheatheBlend = 0 -- no easing back from the hip; the slash takes over the blade right away
+	guarding = false
+	aimOffset = Vector2.zero -- the blade settles at the center when the slash ends
+	slash = { direction = direction, t = 0 }
+	Remotes.QuickDraw:FireServer(direction)
+	Remotes.Sheathe:FireServer(false) -- keeps the server in step even if it refused the bonus
+end
+
+-- Each frame: collects the mouse swing while the blade is sheathed and the button is held, and starts the
+-- slash once it is big enough. Right, up and down count; a swing to the left does nothing.
+local function updateQuickDraw(dt)
+	if slash then
+		slash.t += dt
+		if slash.t >= Config.QuickDrawTime then
+			slash = nil
+		end
+	end
+
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	swingArmed = sheathed and slash == nil and not Weapon.isFree()
+		and humanoid ~= nil and humanoid.Health > 0
+		and UserInputService:IsMouseButtonPressed(Enum.UserInputType[Config.QuickDrawButton])
+	if not swingArmed then
+		swing = Vector2.zero
+		return
+	end
+
+	if swing.Magnitude < Config.QuickDrawThreshold then return end
+	local direction = nil
+	if math.abs(swing.X) >= math.abs(swing.Y) then
+		if swing.X > 0 then
+			direction = "Right"
+		end
+	else
+		direction = swing.Y < 0 and "Up" or "Down" -- screen Y grows downward
+	end
+	swing = Vector2.zero
+	if direction then
+		startQuickDraw(direction)
+	end
+end
+
 local function driveCharacterBlade(dt)
+	updateQuickDraw(dt)
 	updateCursor()
 	setMovementLocked(Weapon.isFree())
 
@@ -676,6 +749,8 @@ function Weapon.start(menuOpenCheck)
 		-- A new character starts with the blade drawn (the server's state for it starts that way too).
 		sheathed = false
 		sheatheBlend = 0
+		slash = nil
+		swing = Vector2.zero
 		animationActive = false
 		setDefaultAnimation(character, Config.LegAnimation == true)
 	end
@@ -683,6 +758,14 @@ function Weapon.start(menuOpenCheck)
 		onCharacter(player.Character)
 	end
 	player.CharacterAdded:Connect(onCharacter)
+
+	-- Mouse movement for the quick-draw swing. Movement events carry the delta even while the cursor is free
+	-- (default mode), unlike GetMouseDelta.
+	UserInputService.InputChanged:Connect(function(input)
+		if swingArmed and input.UserInputType == Enum.UserInputType.MouseMovement then
+			swing += Vector2.new(input.Delta.X, input.Delta.Y)
+		end
+	end)
 
 	RunService.RenderStepped:Connect(driveCharacterBlade)
 	RunService:BindToRenderStep("BladeHands", Enum.RenderPriority.Last.Value, poseHands)

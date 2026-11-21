@@ -32,7 +32,12 @@ local Config = {
 	LockOnKey = "Q",              -- toggles lock-on (Enum.KeyCode name). Locked on, the body always faces the opponent and A/D strafe
 	LockOnRange = 80,             -- studs; outside a match, the nearest training dummy within this range is locked
 	LockOnTurnSpeed = 14,         -- how quickly the body turns to face the target (higher = snappier)
-	GuardKey = "F",             -- hold to guard (Enum.KeyCode name)
+	QuickDrawButton = "MouseButton1", -- hold while sheathed and swing the mouse right, up or down to draw and slash (Enum.UserInputType name)
+	QuickDrawThreshold = 80,      -- pixels of mouse movement (while the button is held) that count as a swing
+	QuickDrawTime = 0.25,         -- seconds the slash takes
+	QuickDrawBonus = 1.5,         -- damage multiplier for a quick-draw slash
+	QuickDrawBonusTime = 0.5,     -- seconds after the draw that hits still get the bonus (checked by the server)
+	GuardKey = "F",            -- hold to guard (Enum.KeyCode name)
 	LookButton = "MouseButton2",  -- hold and move the mouse to look around (Enum.UserInputType name); the blade holds still
 	LookSensitivity = 0.003,      -- radians of camera turn per pixel of mouse movement while looking around
 	LookPitchLimit = 70,          -- degrees the camera can look up or down while looking around

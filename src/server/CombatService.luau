@@ -30,6 +30,7 @@ local function getState(character)
 			dashUntil = -math.huge,
 			guarding = false,
 			sheathed = false,    -- blade on the hip: it can't hit, clash or guard
+			quickDrawUntil = -math.huge, -- hits before this time get Config.QuickDrawBonus (a draw slash)
 			hitAt = {},          -- [target character] = last time this blade hit it
 			clashAt = {},        -- [other character] = last time these blades clashed
 			prevRel = nil,       -- blade tip relative to the body last heartbeat (for swing speed)
@@ -243,7 +244,8 @@ local function checkSwings()
 						local part = bladeHitPart(target, s.seg.base, s.seg.tip)
 						if part then
 							s.hitAt[target] = now
-							resolveHit(character, target, regionMultiplier(part))
+							local bonus = now < s.quickDrawUntil and Config.QuickDrawBonus or 1
+							resolveHit(character, target, regionMultiplier(part) * bonus)
 						end
 					end
 				end
@@ -267,6 +269,21 @@ local function checkSwings()
 	end
 end
 RunService.Heartbeat:Connect(checkSwings)
+
+-- Quick draw: a slash straight out of the sheath. Only valid while the player is sheathed, alive, not
+-- stunned and combat isn't paused. It draws the blade and gives hits in the next
+-- Config.QuickDrawBonusTime seconds the Config.QuickDrawBonus damage multiplier. The slash itself is
+-- moved by the client, so the usual hit checks apply to it.
+local QUICK_DRAW_DIRECTIONS = { Right = true, Up = true, Down = true }
+Remotes.QuickDraw.OnServerEvent:Connect(function(player, direction)
+	local character = player.Character
+	if not (isAlive(character) and QUICK_DRAW_DIRECTIONS[direction]) then return end
+	local s = getState(character)
+	local now = os.clock()
+	if not s.sheathed or RoundState.paused or now < s.stunnedUntil then return end
+	s.sheathed = false
+	s.quickDrawUntil = now + Config.QuickDrawBonusTime
+end)
 
 -- Guard button: the client reports whether it is held. While held, the blade sits in front of the body
 -- (client) and damage is reduced (server).
