@@ -199,6 +199,7 @@ local function runLoop()
 		while RoundState.active do
 			task.wait(0.25)
 		end
+		Remotes.MatchStart:FireAllClients({}) -- empty list: the match is over, clients clear fighter UI
 		task.wait(Config.IntermissionTime)
 	end
 end

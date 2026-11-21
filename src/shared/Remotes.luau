@@ -27,5 +27,5 @@ return {
 	Dash = folder:WaitForChild("Dash"),       -- client -> server: dash request (no args); server grants the dodge window
 	Ready = folder:WaitForChild("Ready"),     -- client -> server: true to queue, false to leave the queue
 	ReadyState = folder:WaitForChild("ReadyState"), -- server -> client: boolean, syncs the Ready button
-	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players, fired once they're placed
+	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players when placed; {} when the match ends
 }

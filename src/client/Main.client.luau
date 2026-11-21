@@ -299,10 +299,24 @@ local function removeOpponentBar(other)
 	end
 end
 
-for _, other in ipairs(Players:GetPlayers()) do
-	addOpponentBar(other)
+-- Shows only the other fighter's bar, and only while this player is in a match.
+-- Called with the fighter list when a match starts, and with {} when it ends.
+local function setOpponentBars(fighters)
+	for other in pairs(opponentBars) do
+		removeOpponentBar(other)
+	end
+	local iAmFighting = false
+	for _, fighter in ipairs(fighters) do
+		if fighter == player then
+			iAmFighting = true
+		end
+	end
+	if not iAmFighting then return end
+	for _, fighter in ipairs(fighters) do
+		addOpponentBar(fighter)
+	end
 end
-Players.PlayerAdded:Connect(addOpponentBar)
+
 Players.PlayerRemoving:Connect(removeOpponentBar)
 
 RunService.RenderStepped:Connect(function()
@@ -387,6 +401,7 @@ local function playMatchIntro(fighters)
 end
 
 Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
+	setOpponentBars(fighters)
 	for _, fighter in ipairs(fighters) do
 		if fighter == player then
 			task.spawn(playMatchIntro, fighters)

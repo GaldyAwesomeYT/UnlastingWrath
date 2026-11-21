@@ -31,7 +31,7 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - Working and tested in Studio: attacks, parries, stun, dummy AI, health bar, round countdown, kill counter, parry screen flash.
 - Stun timer (HUD bar under health, counts down the parry stun; server sends only the duration): written, not yet tested in Studio.
 - Scoreboard (Tab) with per-round kills, and post-kill reset countdown with full heal: written, not yet tested in Studio.
-- Dash (Shift, `Config.DashKey`): the client drives the movement with a LinearVelocity (the client owns its physics); the server only checks cooldown and grants the dodge window, so attacks show "DODGE!". Opponent HP bars top-right: written, not yet tested in Studio.
+- Dash (Shift, `Config.DashKey`): the client drives the movement with a LinearVelocity (the client owns its physics); the server only checks cooldown and grants the dodge window, so attacks show "DODGE!". Opponent HP bar top-right (only the other fighter, only during a match; `MatchStart` sends `{}` when a match ends): written, not yet tested in Studio.
 - Ready-up queue (Ready button, 1v1 once 2 players are ready, countdown cancels if someone unreadies): written, not yet tested in Studio.
 - Match intro (fighters only): wide shot of both fighters for `Config.IntroHoldTime`, then each fighter's camera pans to its normal view over `Config.IntroPanTime`. Server fires `MatchStart` once both are placed: written, not yet tested in Studio.
 - Next planned: balance tuning, lobby/spawn/map polish.
