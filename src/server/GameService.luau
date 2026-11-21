@@ -182,8 +182,27 @@ local function startMatch()
 		task.wait(0.1)
 	end
 
+	-- Duel intro: freeze both fighters (anchored) and pause combat while the client plays a side shot.
+	RoundState.paused = true
+	local frozenRoots = {}
+	for _, fighter in ipairs(fighters) do
+		local root = fighter.Character and fighter.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			root.Anchored = true
+			table.insert(frozenRoots, root)
+		end
+	end
 	Remotes.MatchStart:FireAllClients(fighters)
 	broadcastScores()
+	task.wait(Config.DuelIntroTime)
+
+	-- Unfreeze and return to play. A root that was destroyed (the character died) is skipped.
+	for _, root in ipairs(frozenRoots) do
+		if root.Parent then
+			root.Anchored = false
+		end
+	end
+	RoundState.paused = false
 	broadcast("FIGHT! First to " .. Config.KillsToWin .. " kills")
 end
 

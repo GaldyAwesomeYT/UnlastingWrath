@@ -369,42 +369,55 @@ Remotes.ReadyState.OnClientEvent:Connect(setReadyLocal)
 -- While set, this character is locked facing this Player (used during the match intro).
 local facingTarget = nil
 
--- Match intro: a wide shot of both fighters, then this player's camera pans to its normal view.
-local function playMatchIntro(fighters)
-	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+-- Restores the default follow camera on this player's current character.
+local function restoreFollowCamera()
+	camera.CameraType = Enum.CameraType.Custom
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		camera.CameraSubject = humanoid
+	end
+end
+
+-- Round start duel intro: a side shot framing both fighters, about 12 studs from their midpoint.
+-- The server freezes the fighters for the same time; this only moves the camera.
+-- If this player's character dies or is replaced during the intro, the follow camera is restored at once.
+local function playDuelIntro(fighters)
+	local myCharacter = player.Character
+	local myRoot = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
 	local otherPlayer = (fighters[1] == player) and fighters[2] or fighters[1]
 	local otherRoot = otherPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if not (myRoot and otherRoot) then return end
 
-	-- Lock this fighter facing the opponent for the whole intro (overrides Manual-mode aiming).
+	-- Lock this fighter facing the opponent for the intro (overrides Manual-mode aiming).
 	facingTarget = otherPlayer
-
-	local mid = (myRoot.Position + otherRoot.Position) / 2
 	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CFrame = CFrame.lookAt(mid + Vector3.new(0, 10, 26), mid + Vector3.new(0, 2, 0))
-	task.wait(Config.IntroHoldTime)
 
-	-- Normal Roblox follow view: a little behind and above this player's character.
-	local target = CFrame.lookAt(
-		myRoot.Position - myRoot.CFrame.LookVector * 8 + Vector3.new(0, 3, 0),
-		myRoot.Position + Vector3.new(0, 1.5, 0)
-	)
-	local tween = TweenService:Create(
-		camera,
-		TweenInfo.new(Config.IntroPanTime, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
-		{ CFrame = target }
-	)
-	tween:Play()
-	tween.Completed:Wait()
-	facingTarget = nil
-	camera.CameraType = Enum.CameraType.Custom
+	local started = os.clock()
+	local connection
+	connection = RunService.RenderStepped:Connect(function()
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		local aborted = player.Character ~= myCharacter or not humanoid or humanoid.Health <= 0
+		if aborted or os.clock() - started >= Config.DuelIntroTime then
+			connection:Disconnect()
+			facingTarget = nil
+			restoreFollowCamera()
+			return
+		end
+
+		local between = Vector3.new(otherRoot.Position.X - myRoot.Position.X, 0, otherRoot.Position.Z - myRoot.Position.Z)
+		if between.Magnitude < 0.01 then return end
+		local mid = (myRoot.Position + otherRoot.Position) / 2
+		local side = Vector3.yAxis:Cross(between.Unit)
+		-- 11.5 sideways + 3.5 up: about 12 studs from the midpoint.
+		camera.CFrame = CFrame.lookAt(mid + side * 11.5 + Vector3.new(0, 3.5, 0), mid + Vector3.new(0, 2, 0))
+	end)
 end
 
 Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
 	setOpponentBars(fighters)
 	for _, fighter in ipairs(fighters) do
 		if fighter == player then
-			task.spawn(playMatchIntro, fighters)
+			task.spawn(playDuelIntro, fighters)
 			return
 		end
 	end
