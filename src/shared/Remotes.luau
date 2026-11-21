@@ -2,7 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Attack", "Parry", "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState" }
+local NAMES = { "Attack", "Parry", "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart" }
 local folder
 
 if RunService:IsServer() then
@@ -27,4 +27,5 @@ return {
 	Dash = folder:WaitForChild("Dash"),       -- client -> server: move direction (Vector3)
 	Ready = folder:WaitForChild("Ready"),     -- client -> server: true to queue, false to leave the queue
 	ReadyState = folder:WaitForChild("ReadyState"), -- server -> client: boolean, syncs the Ready button
+	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players, fired once they're placed
 }

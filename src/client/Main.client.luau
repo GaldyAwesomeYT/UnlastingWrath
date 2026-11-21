@@ -352,6 +352,42 @@ readyButton.Activated:Connect(function()
 end)
 Remotes.ReadyState.OnClientEvent:Connect(setReadyLocal)
 
+-- Match intro: a wide shot of both fighters, then this player's camera pans to its normal view.
+local function playMatchIntro(fighters)
+	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local otherPlayer = (fighters[1] == player) and fighters[2] or fighters[1]
+	local otherRoot = otherPlayer and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if not (myRoot and otherRoot) then return end
+
+	local mid = (myRoot.Position + otherRoot.Position) / 2
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.CFrame = CFrame.lookAt(mid + Vector3.new(0, 10, 26), mid + Vector3.new(0, 2, 0))
+	task.wait(Config.IntroHoldTime)
+
+	-- Normal Roblox follow view: a little behind and above this player's character.
+	local target = CFrame.lookAt(
+		myRoot.Position - myRoot.CFrame.LookVector * 8 + Vector3.new(0, 3, 0),
+		myRoot.Position + Vector3.new(0, 1.5, 0)
+	)
+	local tween = TweenService:Create(
+		camera,
+		TweenInfo.new(Config.IntroPanTime, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+		{ CFrame = target }
+	)
+	tween:Play()
+	tween.Completed:Wait()
+	camera.CameraType = Enum.CameraType.Custom
+end
+
+Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
+	for _, fighter in ipairs(fighters) do
+		if fighter == player then
+			task.spawn(playMatchIntro, fighters)
+			return
+		end
+	end
+end)
+
 -- World point under the mouse cursor.
 local function cursorAim()
 	local mouse = UserInputService:GetMouseLocation()

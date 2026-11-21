@@ -11,7 +11,7 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 ## Layout
 - `default.project.json`: maps `src/server` → ServerScriptService/Server, `src/client` → StarterPlayerScripts/Client, `src/shared` → ReplicatedStorage/Shared.
 - `src/shared/Config.luau`: all tuning numbers. Change values here, not in logic.
-- `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round, Scores, Dash, Ready, ReadyState). Server creates them.
+- `src/shared/Remotes.luau`: RemoteEvents (Attack, Parry, Feedback, Round, Scores, Dash, Ready, ReadyState, MatchStart). Server creates them.
 - `src/server/CombatService.luau`: server-authoritative attacks, parries, stuns, kill credit, and dummy AI.
 - `src/server/GameService.luau`: ready-up queue (needs `Config.MatchSize` players), lobby countdown, first to KillsToWin between the fighters, intermission, kill counts, post-kill reset countdown, and scores broadcast.
 - `src/server/RoundState.luau`: shared "active", "paused", and "fighters" state.
@@ -33,4 +33,5 @@ A Roblox PvP/PvE game built around parrying. Players attack with the mouse and p
 - Scoreboard (Tab) with per-round kills, and post-kill reset countdown with full heal: written, not yet tested in Studio.
 - Dash (Shift, `Config.DashKey`): server moves the character for `DashDuration` and makes it untouchable (attacks show "DODGE!"). Opponent HP bars top-right: written, not yet tested in Studio.
 - Ready-up queue (Ready button, 1v1 once 2 players are ready, countdown cancels if someone unreadies): written, not yet tested in Studio.
+- Match intro (fighters only): wide shot of both fighters for `Config.IntroHoldTime`, then each fighter's camera pans to its normal view over `Config.IntroPanTime`. Server fires `MatchStart` once both are placed: written, not yet tested in Studio.
 - Next planned: balance tuning, lobby/spawn/map polish.

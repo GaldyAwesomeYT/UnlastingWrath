@@ -163,6 +163,7 @@ local function startMatch()
 	RoundState.paused = false
 	-- Spawn the two fighters on opposite sides of the arena, each facing the other.
 	local spots = { Vector3.new(-12, 3, 0), Vector3.new(12, 3, 0) }
+	local placed = 0
 	for i, player in ipairs(fighters) do
 		local spot = spots[i]
 		local other = spots[3 - i]
@@ -171,8 +172,17 @@ local function startMatch()
 			local character = player.Character or player.CharacterAdded:Wait()
 			local root = character:WaitForChild("HumanoidRootPart")
 			root.CFrame = CFrame.lookAt(spot, Vector3.new(other.X, spot.Y, other.Z))
+			placed = placed + 1
 		end)
 	end
+
+	-- Wait for both fighters to be placed (give up after 10s if one left while loading).
+	local deadline = os.clock() + 10
+	while placed < #fighters and os.clock() < deadline do
+		task.wait(0.1)
+	end
+
+	Remotes.MatchStart:FireAllClients(fighters)
 	broadcastScores()
 	broadcast("FIGHT! First to " .. Config.KillsToWin .. " kills")
 end
