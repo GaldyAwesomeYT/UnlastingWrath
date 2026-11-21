@@ -17,7 +17,7 @@ local states = setmetatable({}, { __mode = "k" })
 local function getState(character)
 	local s = states[character]
 	if not s then
-		s = { lastAttack = 0, lastParry = 0, parryStart = -math.huge, stunnedUntil = 0, lastDash = 0, dashUntil = -math.huge }
+		s = { lastAttack = 0, lastParry = 0, parryStart = -math.huge, stunnedUntil = 0, lastDash = 0, dashUntil = -math.huge, blocking = false }
 		states[character] = s
 	end
 	return s
@@ -69,7 +69,12 @@ local function resolveHit(attacker, target)
 		return
 	end
 
-	target:FindFirstChildOfClass("Humanoid"):TakeDamage(Config.AttackDamage)
+	local damage = Config.AttackDamage
+	if targetState.blocking then
+		damage = damage * (1 - Config.BlockReduction)
+		notify(target, "Blocked")
+	end
+	target:FindFirstChildOfClass("Humanoid"):TakeDamage(damage)
 	if attackerPlayer then
 		lastHits[target] = { player = attackerPlayer, time = now }
 	end
@@ -140,6 +145,14 @@ Remotes.Parry.OnServerEvent:Connect(function(player)
 	if RoundState.paused or now < s.stunnedUntil or now - s.lastParry < Config.ParryCooldown then return end
 	s.lastParry = now
 	s.parryStart = now
+end)
+
+-- Block: the client reports whether the block key is held. While held, incoming attacks deal
+-- Config.BlockReduction less damage. The flag lives on the character's state, so it resets on death.
+Remotes.Block.OnServerEvent:Connect(function(player, held)
+	local character = player.Character
+	if not character then return end
+	getState(character).blocking = (held == true)
 end)
 
 -- Dash: the client moves its own character (see Main.client.luau). The server only checks

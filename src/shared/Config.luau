@@ -41,6 +41,10 @@ local Config = {
 	DashSpeed = 60,           -- studs/second while dashing (walk speed is 16)
 	DashDuration = 0.2,       -- seconds of dash; the character is untouchable by attacks for this long
 	DashCooldown = 1.0,       -- seconds between dashes
+
+	-- Block (hold)
+	BlockKey = "Q",           -- Enum.KeyCode name; hold to block
+	BlockReduction = 0.3,     -- fraction of attack damage removed while blocking (30%)
 }
 
 return Config

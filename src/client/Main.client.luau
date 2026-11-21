@@ -48,6 +48,7 @@ local FEEDBACK = {
 	Stunned = { text = "STUNNED", color = Color3.fromRGB(255, 80, 80) },
 	Hit = { text = "HIT", color = Color3.fromRGB(255, 255, 255) },
 	Dodged = { text = "DODGE!", color = Color3.fromRGB(120, 200, 255) },
+	Blocked = { text = "BLOCK", color = Color3.fromRGB(200, 200, 200) },
 }
 
 -- Parry effects: a green screen flash and an optional sound on the defender's screen.
@@ -613,6 +614,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		end
 	elseif input.KeyCode == Enum.KeyCode[Config.DashKey] then
 		startDash()
+	elseif input.KeyCode == Enum.KeyCode[Config.BlockKey] then
+		Remotes.Block:FireServer(true)
 	elseif input.KeyCode == Enum.KeyCode.F then
 		Remotes.Parry:FireServer()
 	elseif input.KeyCode == Enum.KeyCode.M then
@@ -620,6 +623,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		updateModeLabel()
 	elseif input.KeyCode == Enum.KeyCode.Tab then
 		board.Visible = not board.Visible
+	end
+end)
+
+-- Releasing the block key stops blocking on the server.
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode[Config.BlockKey] then
+		Remotes.Block:FireServer(false)
 	end
 end)
 

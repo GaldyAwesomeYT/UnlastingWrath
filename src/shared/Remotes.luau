@@ -2,7 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Attack", "Parry", "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart" }
+local NAMES = { "Attack", "Parry", "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block" }
 local folder
 
 if RunService:IsServer() then
@@ -25,6 +25,7 @@ return {
 	Round = folder:WaitForChild("Round"),     -- server -> client: status message
 	Scores = folder:WaitForChild("Scores"),   -- server -> client: list of { name, kills }, highest first
 	Dash = folder:WaitForChild("Dash"),       -- client -> server: dash request (no args); server grants the dodge window
+	Block = folder:WaitForChild("Block"),     -- client -> server: boolean, true while the block key is held
 	Ready = folder:WaitForChild("Ready"),     -- client -> server: true to queue, false to leave the queue
 	ReadyState = folder:WaitForChild("ReadyState"), -- server -> client: boolean, syncs the Ready button
 	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players when placed; {} when the match ends
