@@ -211,6 +211,14 @@ end
 -- and shows the cursor area only while the mouse is locked.
 local function updateCursor()
 	local free = Weapon.isFree()
+
+	-- Look button: polled every frame instead of using input events. Roblox's default camera script also
+	-- binds right mouse and can mark the press as handled, so an InputBegan listener may never see it.
+	local lookHeld = UserInputService:IsMouseButtonPressed(Enum.UserInputType[Config.LookButton])
+	if lookHeld ~= looking then
+		Weapon.setLooking(lookHeld)
+	end
+
 	UserInputService.MouseBehavior = free and Enum.MouseBehavior.Default or Enum.MouseBehavior.LockCenter
 	hud.Enabled = not free
 

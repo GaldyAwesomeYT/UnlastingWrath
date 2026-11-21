@@ -634,8 +634,6 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		startDash()
 	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
 		setGuard(true)
-	elseif input.UserInputType == Enum.UserInputType[Config.LookButton] then
-		Weapon.setLooking(true)
 	elseif input.KeyCode == Enum.KeyCode.Tab then
 		board.Visible = not board.Visible
 	end
@@ -646,8 +644,6 @@ UserInputService.InputEnded:Connect(function(input)
 		Weapon.setFreeKey(false)
 	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
 		setGuard(false) -- always release, even while the cursor is free
-	elseif input.UserInputType == Enum.UserInputType[Config.LookButton] then
-		Weapon.setLooking(false)
 	end
 end)
 
