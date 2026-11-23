@@ -789,7 +789,6 @@ function Weapon.isLooking()
 	return looking
 end
 
--- The camera's look-around offsets from the body's facing: yaw (right is positive), pitch (up is positive).
 -- Called every frame by Main.client: true while the player is locked onto a target. Pushing the cursor
 -- past the circle's edge then does not turn the body or tilt the camera, and any tilt is dropped.
 function Weapon.setLockedOn(value)
@@ -800,6 +799,8 @@ function Weapon.setLockedOn(value)
 	end
 end
 
+-- The camera's look-around offsets from the body's facing: yaw (right is positive), pitch (up is
+-- positive), including any tilt from pushing the cursor past the circle's edge.
 function Weapon.getLook()
 	return lookYaw, lookPitch + edgePitch
 end
