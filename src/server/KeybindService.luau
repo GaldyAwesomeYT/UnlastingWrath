@@ -1,7 +1,8 @@
 -- Saves each player's personal key bindings (the Controls page) in a DataStore. The client sends its
 -- bindings when they change, and asks for them when it starts. Everything from the client is checked
 -- against ControlActions before it is saved. If DataStores aren't available (for example Studio without
--- API access), loading and saving fail quietly and bindings last for the session only.
+-- API access, or an unpublished place), loading and saving print a warning and bindings last for the
+-- session only.
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -47,6 +48,9 @@ function KeybindService.start()
 				local ok, saved = pcall(function()
 					return store:GetAsync(keyFor(player))
 				end)
+				if not ok then
+					warn("KeybindService: couldn't load bindings for " .. player.Name .. ": " .. tostring(saved))
+				end
 				local clean = ok and cleaned(saved)
 				if clean and player.Parent then
 					Remotes.Keybinds:FireClient(player, clean)
@@ -66,9 +70,12 @@ function KeybindService.start()
 		end
 		local function write(bindings)
 			lastSave[player] = os.clock()
-			pcall(function()
+			local ok, err = pcall(function()
 				store:SetAsync("Player_" .. userId, bindings)
 			end)
+			if not ok then
+				warn("KeybindService: couldn't save bindings: " .. tostring(err))
+			end
 		end
 		if waitTime <= 0 then
 			task.spawn(write, clean)
