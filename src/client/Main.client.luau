@@ -17,6 +17,20 @@ local Leaderboard = require(script.Parent.Leaderboard)
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
+-- Roblox's built-in player list opens on Tab, on top of the game's own leaderboard. Turn it off. The
+-- core GUI may not be ready right at the start, so SetCoreGuiEnabled is retried for a few seconds.
+task.spawn(function()
+	local StarterGui = game:GetService("StarterGui")
+	for _ = 1, 20 do
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+		end)
+		if ok then return end
+		task.wait(0.25)
+	end
+	warn("Couldn't turn off Roblox's player list; Tab may open it over the leaderboard.")
+end)
+
 -- Title menu handle, set at the end of this script. While the menu is open, gameplay input is ignored.
 local menu
 
