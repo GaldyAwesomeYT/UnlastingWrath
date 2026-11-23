@@ -508,6 +508,9 @@ RunService.RenderStepped:Connect(function(dt)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
+	-- A finished look-around asks the body to turn to where the camera was looking. Only the free-facing
+	-- code at the end uses it; everywhere else it is dropped (lock-on, the intro and default mode set their own facing).
+	local lookTurn = Weapon.takeLookTurn()
 	if not (humanoid and root and humanoid.Health > 0) then
 		LockOn.update(nil, false) -- hides the marker
 		return
@@ -551,14 +554,15 @@ RunService.RenderStepped:Connect(function(dt)
 		return
 	end
 
-	-- The camera is locked to the body's facing, so turning toward a backward move (S) would swing the camera
-	-- around and flip "backward" every frame, spinning the player. Walk backward without turning instead.
-	local move = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
-	local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-	local movingBackward = move.Magnitude > 0.01 and look.Magnitude > 0.01 and move.Unit:Dot(look.Unit) < -0.3
-	-- Same loop while looking around: the camera is off the body's facing, so turning toward a move
-	-- would drag the camera and change the move direction again. The body holds still instead.
-	humanoid.AutoRotate = not (movingBackward or Weapon.isLooking())
+	-- No lock-on: the body never turns toward its movement. The camera is locked to the body's facing and
+	-- movement is relative to the camera, so turning toward a move (S, or A and D pivoting) would swing the
+	-- camera and flip the move direction every frame. A, D, S and W all walk without turning, and the
+	-- body's orientation follows where the player looks: hold right mouse to look around, and on release
+	-- the body turns to face that way. The camera is behind the body again, so the view doesn't jump.
+	humanoid.AutoRotate = false
+	if lookTurn ~= 0 then
+		root.CFrame = root.CFrame * CFrame.Angles(0, -lookTurn, 0) -- yaw to the right is a negative turn about Y
+	end
 end)
 
 -- Dash: the client drives its own character with a horizontal LinearVelocity for

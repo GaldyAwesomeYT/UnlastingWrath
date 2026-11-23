@@ -56,6 +56,7 @@ local freeKeyHeld = false -- set by Main.client from the Config.FreeCursorKey in
 local looking = false
 local lookYaw = 0
 local lookPitch = 0
+local pendingTurn = 0 -- yaw from a finished look-around that the body hasn't turned to yet
 local isMenuOpen = function()
 	return false
 end
@@ -738,10 +739,24 @@ end
 -- Look button pressed or released (called from Main.client). Can't start while the cursor is free.
 -- Releasing puts the camera back behind the body.
 function Weapon.setLooking(held)
+	local wasLooking = looking
 	looking = held == true and not Weapon.isFree()
 	if not looking then
+		-- Releasing: the body will turn to where the camera was looking (see takeLookTurn), so the view
+		-- stays put when the camera goes back to following the body.
+		if wasLooking then
+			pendingTurn += lookYaw
+		end
 		lookYaw, lookPitch = 0, 0
 	end
+end
+
+-- The yaw (radians, right is positive) the body should turn by to face where the player was looking.
+-- Returns it once and clears it. Main.client.luau applies it to the body.
+function Weapon.takeLookTurn()
+	local turn = pendingTurn
+	pendingTurn = 0
+	return turn
 end
 
 function Weapon.isLooking()
