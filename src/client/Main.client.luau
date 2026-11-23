@@ -513,6 +513,7 @@ RunService.RenderStepped:Connect(function(dt)
 	-- Lock-on: the body faces the opponent, so A and D strafe around them and the camera stays on them.
 	-- While looking around (right mouse) or with the cursor free, the body holds still.
 	local lockedRoot = LockOn.update(root, true)
+	Weapon.setLockedOn(lockedRoot ~= nil)
 	if lockedRoot then
 		humanoid.AutoRotate = false
 		if not (Weapon.isLooking() or Weapon.isFree()) then

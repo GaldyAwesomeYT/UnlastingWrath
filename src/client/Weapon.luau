@@ -58,6 +58,7 @@ local looking = false
 local lookYaw = 0
 local lookPitch = 0
 local pendingTurn = 0 -- yaw the body hasn't turned to yet: from a finished look-around, or from pushing the cursor past the circle's edge
+local lockedOn = false -- set by Main.client each frame (setLockedOn): the body is held on a lock-on target
 local edgePitch = 0 -- camera tilt (radians, up is positive) from pushing the cursor up or down past the circle's edge
 local isMenuOpen = function()
 	return false
@@ -75,6 +76,7 @@ local boundary = Instance.new("Frame")
 boundary.Name = "Boundary"
 boundary.AnchorPoint = Vector2.new(0.5, 0.5)
 boundary.BackgroundTransparency = 1
+boundary.Visible = Config.ShowAimCircle -- the circle's edge is invisible by default; the cursor still stops there
 boundary.Parent = hud
 local boundaryCorner = Instance.new("UICorner")
 boundaryCorner.CornerRadius = UDim.new(1, 0) -- full circle
@@ -315,11 +317,15 @@ local function updateCursor(dt)
 
 		-- Pushing the cursor past the circle turns the player that way: sideways turns the body (and so the
 		-- camera), up or down tilts the camera, easing back to level when the push stops.
+		-- Locked on, the body and camera stay on the target, so the push turns nothing.
 		local pushedVertically = false
 		if aimOffset.Magnitude > aimRadius then
 			local clamped = aimOffset.Unit * aimRadius
 			local excess = aimOffset - clamped
 			aimOffset = clamped
+			if lockedOn then
+				excess = Vector2.zero
+			end
 			local limit = Config.EdgeTurnMaxPixels
 			pendingTurn += math.clamp(excess.X, -limit, limit) * Config.EdgeTurnSensitivity
 			if math.abs(excess.Y) > 0.5 then
@@ -784,6 +790,16 @@ function Weapon.isLooking()
 end
 
 -- The camera's look-around offsets from the body's facing: yaw (right is positive), pitch (up is positive).
+-- Called every frame by Main.client: true while the player is locked onto a target. Pushing the cursor
+-- past the circle's edge then does not turn the body or tilt the camera, and any tilt is dropped.
+function Weapon.setLockedOn(value)
+	lockedOn = value == true
+	if lockedOn then
+		edgePitch = 0
+		pendingTurn = 0
+	end
+end
+
 function Weapon.getLook()
 	return lookYaw, lookPitch + edgePitch
 end

@@ -7,6 +7,7 @@ local Config = {
 	WeaponLength = 3.2,           -- studs, blade length
 	AimMaxAngle = 88,             -- degrees from straight ahead at the edge of the cursor circle (left, right, up or down)
 	AimRange = 0.3,               -- radius of the cursor circle, as a fraction of the screen's shorter side (the circle is drawn on screen)
+	ShowAimCircle = false,        -- true: draw the edge of the cursor circle on screen. false: the space is still there but invisible (only the cursor dot shows)
 	EdgeTurnSensitivity = 0.004,  -- radians of turn per pixel of mouse movement pushed past the edge of the cursor circle (sideways turns the body and camera)
 	EdgeTurnMaxPixels = 60,       -- most pixels of push counted in one frame, so a sudden mouse jump can't spin the player
 	EdgePitchLimit = 30,          -- degrees the camera can tilt up or down from pushing the cursor past the circle's top or bottom
