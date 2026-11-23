@@ -19,6 +19,7 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Controls = require(script.Parent.Controls)
 
 local Weapon = {}
 
@@ -289,7 +290,7 @@ local function updateCursor()
 
 	-- Look button: polled every frame instead of using input events. Roblox's default camera script also
 	-- binds right mouse and can mark the press as handled, so an InputBegan listener may never see it.
-	local lookHeld = UserInputService:IsMouseButtonPressed(Enum.UserInputType[Config.LookButton])
+	local lookHeld = Controls.isDown("Look")
 	if lookHeld ~= looking then
 		Weapon.setLooking(lookHeld)
 	end
@@ -438,7 +439,7 @@ local function updateQuickDraw(dt)
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	swingArmed = sheathed and slash == nil and not Weapon.isFree()
 		and humanoid ~= nil and humanoid.Health > 0
-		and UserInputService:IsMouseButtonPressed(Enum.UserInputType[Config.QuickDrawButton])
+		and Controls.isDown("QuickDraw")
 	if not swingArmed then
 		swing = Vector2.zero
 		return

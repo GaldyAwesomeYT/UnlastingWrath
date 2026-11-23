@@ -49,3 +49,4 @@ CombatService.spawnDummy(Vector3.new(0, 3, -20), {
 }, "Dummy")
 GameService.start()
 require(script.Parent.BladeService).start()
+require(script.Parent.KeybindService).start()

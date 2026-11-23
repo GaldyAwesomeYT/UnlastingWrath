@@ -3,7 +3,7 @@
 -- the opponent instead of turning the player.
 --   * In a match, the target is the other fighter. Outside a match, it is the nearest training dummy
 --     in range (Config.LockOnRange).
---   * On by default. Config.LockOnKey toggles it. With no target, or switched off, the player turns the
+--   * On by default. The player's "LockOn" binding (Controls) toggles it. With no target, or switched off, the player turns the
 --     old way (the body turns toward where it moves).
 --   * The current target is kept until it dies, leaves, or goes out of range, so the lock doesn't flick
 --     between targets.

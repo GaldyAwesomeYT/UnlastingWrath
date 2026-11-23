@@ -11,6 +11,7 @@ local Menu = require(script.Parent.Menu)
 local Weapon = require(script.Parent.Weapon)
 local LockedCamera = require(script.Parent.LockedCamera)
 local LockOn = require(script.Parent.LockOn)
+local Controls = require(script.Parent.Controls)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -654,7 +655,8 @@ end
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or (menu and menu.isOpen()) then return end
 
-	if input.KeyCode == Enum.KeyCode[Config.FreeCursorKey] then
+	-- The keys are this player's own bindings (Controls), set on the Controls page of the menu.
+	if Controls.matches("FreeCursor", input) then
 		Weapon.setFreeKey(true)
 		if guardHeld then
 			setGuard(false) -- dropping the guard when the cursor frees
@@ -664,19 +666,19 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
 	if Weapon.isFree() then return end -- locked while the cursor is free
 
-	if input.KeyCode == Enum.KeyCode[Config.DashKey] then
+	if Controls.matches("Dash", input) then
 		startDash()
-	elseif input.KeyCode == Enum.KeyCode[Config.SheatheKey] then
+	elseif Controls.matches("Sheathe", input) then
 		if Weapon.toggleSheathe() and guardHeld then
 			setGuard(false) -- sheathing drops the guard
 		end
-	elseif input.KeyCode == Enum.KeyCode[Config.LockOnKey] then
+	elseif Controls.matches("LockOn", input) then
 		LockOn.toggle()
-	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
+	elseif Controls.matches("Guard", input) then
 		if not Weapon.isSheathed() then
 			setGuard(true)
 		end
-	elseif input.KeyCode == Enum.KeyCode.Tab then
+	elseif Controls.matches("Scoreboard", input) then
 		board.Visible = not board.Visible
 		if board.Visible then
 			Remotes.ScoresRequest:FireServer() -- fresh scores each time it opens
@@ -685,9 +687,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode[Config.FreeCursorKey] then
+	if Controls.matches("FreeCursor", input) then
 		Weapon.setFreeKey(false)
-	elseif input.KeyCode == Enum.KeyCode[Config.GuardKey] then
+	elseif Controls.matches("Guard", input) then
 		setGuard(false) -- always release, even while the cursor is free
 	end
 end)
