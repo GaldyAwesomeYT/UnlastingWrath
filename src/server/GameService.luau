@@ -8,6 +8,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RoundState = require(script.Parent.RoundState)
 local CombatService = require(script.Parent.CombatService)
 local TrainingService = require(script.Parent.TrainingService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
 
 local GameService = {}
 
@@ -144,6 +145,7 @@ local function onDeath(player, character)
 	local killer = last.player
 	kills[killer] = (kills[killer] or 0) + 1
 	broadcastScores()
+	LeaderboardService.recordKill(killer) -- all-time global and regional totals
 
 	if kills[killer] >= Config.KillsToWin then
 		RoundState.active = false

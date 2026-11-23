@@ -2,7 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block", "Options", "Sheathe", "ScoresRequest", "QuickDraw", "Keybinds" }
+local NAMES = { "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block", "Options", "Sheathe", "ScoresRequest", "QuickDraw", "Keybinds", "Leaderboard" }
 local folder
 
 if RunService:IsServer() then
@@ -28,6 +28,7 @@ return {
 	ReadyState = folder:WaitForChild("ReadyState"), -- server -> client: boolean, syncs the Ready button
 	MatchStart = folder:WaitForChild("MatchStart"), -- server -> client: list of fighter Players when placed; {} when the match ends
 	ScoresRequest = folder:WaitForChild("ScoresRequest"), -- client -> server: no args; the server answers that client with the Scores list
+	Leaderboard = folder:WaitForChild("Leaderboard"), -- client -> server: "Global" or "Regional"; server -> client: (kind, rows or nil, region code), rows = { { name, kills } }
 	Keybinds = folder:WaitForChild("Keybinds"), -- client -> server: no args to load, or a { [moveId] = binding } table to save; server -> client: the saved table
 	QuickDraw = folder:WaitForChild("QuickDraw"), -- client -> server: "Right", "Up" or "Down"; a slash straight out of the sheath (only valid while sheathed)
 	Sheathe = folder:WaitForChild("Sheathe"), -- client -> server: boolean, true while the blade is sheathed (no hits, clashes or guard)

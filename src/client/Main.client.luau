@@ -12,6 +12,7 @@ local Weapon = require(script.Parent.Weapon)
 local LockedCamera = require(script.Parent.LockedCamera)
 local LockOn = require(script.Parent.LockOn)
 local Controls = require(script.Parent.Controls)
+local Leaderboard = require(script.Parent.Leaderboard)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -124,57 +125,14 @@ local function showFeedback(kind)
 	end)
 end
 
-modeLabel.Text = "  Mouse: swing blade  |  RMB: guard  |  Tab: scores"
-
--- Scoreboard (Tab toggles it): every player's kills this round, highest first.
-local board = Instance.new("Frame")
-board.Name = "Scoreboard"
-board.AnchorPoint = Vector2.new(0.5, 0)
-board.Position = UDim2.new(0.5, 0, 0, 60)
-board.Size = UDim2.fromOffset(320, 0)
-board.AutomaticSize = Enum.AutomaticSize.Y
-board.BackgroundColor3 = Color3.new(0, 0, 0)
-board.BackgroundTransparency = 0.4
-board.BorderSizePixel = 0
-board.Visible = false
-board.Parent = gui
-
-local boardLayout = Instance.new("UIListLayout")
-boardLayout.SortOrder = Enum.SortOrder.LayoutOrder
-boardLayout.Padding = UDim.new(0, 4)
-boardLayout.Parent = board
-
-local boardPadding = Instance.new("UIPadding")
-boardPadding.PaddingTop = UDim.new(0, 8)
-boardPadding.PaddingBottom = UDim.new(0, 8)
-boardPadding.PaddingLeft = UDim.new(0, 12)
-boardPadding.PaddingRight = UDim.new(0, 12)
-boardPadding.Parent = board
-
-local function makeRow(text, order, color)
-	local row = Instance.new("TextLabel")
-	row.Size = UDim2.new(1, 0, 0, 22)
-	row.BackgroundTransparency = 1
-	row.Font = Enum.Font.GothamBold
-	row.TextSize = 18
-	row.TextColor3 = color
-	row.TextXAlignment = Enum.TextXAlignment.Left
-	row.Text = text
-	row.LayoutOrder = order
-	row.Parent = board
+local function refreshModeLabel()
+	modeLabel.Text = "  Mouse: swing blade  |  " .. Controls.label("Guard") .. ": guard  |  " .. Controls.label("Scoreboard") .. ": leaderboard"
 end
+refreshModeLabel()
+Controls.onChanged(refreshModeLabel)
 
-local function renderScores(list)
-	for _, child in ipairs(board:GetChildren()) do
-		if child:IsA("TextLabel") then
-			child:Destroy()
-		end
-	end
-	makeRow("Scoreboard (first to " .. Config.KillsToWin .. ")", 0, Color3.fromRGB(255, 220, 60))
-	for i, entry in ipairs(list) do
-		makeRow(entry.name .. " - " .. entry.kills .. " kills", i, Color3.new(1, 1, 1))
-	end
-end
+-- Leaderboard (the Scoreboard key): a fullscreen board with Server, Global and Regional tabs.
+local leaderboard = Leaderboard.start()
 
 -- Round status (top center): countdown, kills, and winner messages.
 local statusLabel = Instance.new("TextLabel")
@@ -653,9 +611,21 @@ local function setGuard(held)
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
+	-- Esc closes the leaderboard (Roblox may mark Esc as handled, so this comes before the processed check).
+	if input.KeyCode == Enum.KeyCode.Escape and leaderboard.isOpen() then
+		leaderboard.close()
+		return
+	end
 	if processed or (menu and menu.isOpen()) then return end
 
 	-- The keys are this player's own bindings (Controls), set on the Controls page of the menu.
+	-- The leaderboard key opens and closes the fullscreen board. While it is open, nothing else is read.
+	if Controls.matches("Scoreboard", input) then
+		leaderboard.toggle()
+		return
+	end
+	if leaderboard.isOpen() then return end
+
 	if Controls.matches("FreeCursor", input) then
 		Weapon.setFreeKey(true)
 		if guardHeld then
@@ -678,11 +648,6 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		if not Weapon.isSheathed() then
 			setGuard(true)
 		end
-	elseif Controls.matches("Scoreboard", input) then
-		board.Visible = not board.Visible
-		if board.Visible then
-			Remotes.ScoresRequest:FireServer() -- fresh scores each time it opens
-		end
 	end
 end)
 
@@ -694,8 +659,9 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
+-- The mouse is free (and the blade and body hold still) while the title menu or the leaderboard is open.
 Weapon.start(function()
-	return menu ~= nil and menu.isOpen()
+	return (menu ~= nil and menu.isOpen()) or leaderboard.isOpen()
 end)
 LockedCamera.start(function()
 	return facingTarget ~= nil -- the duel intro moves the camera itself
@@ -710,8 +676,8 @@ end)
 Remotes.Round.OnClientEvent:Connect(function(message)
 	statusLabel.Text = message
 end)
-Remotes.Scores.OnClientEvent:Connect(renderScores)
-Remotes.ScoresRequest:FireServer() -- get the current scores now, so the board isn't empty before the first match
+Remotes.Scores.OnClientEvent:Connect(leaderboard.setServerScores)
+Remotes.ScoresRequest:FireServer() -- get the current scores now, so the Server board isn't empty before the first match
 
 -- Title menu (opens right away; the loading screen covers it until the game has loaded).
 menu = Menu.start({
