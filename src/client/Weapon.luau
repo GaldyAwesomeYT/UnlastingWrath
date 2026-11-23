@@ -602,6 +602,35 @@ local function restoreRestPose(character)
 	end
 end
 
+-- Fully sheathed, the blade is pinned to the hip instead of chased there: its AlignPosition and
+-- AlignOrientation (which lag behind a walking character) are switched off and the blade is placed on
+-- the hip each frame, after the character has moved. Drawing the blade turns the constraints back on.
+local bladePinned = false
+
+local function pinBladeToHip(character, root, pinned)
+	local blade = character:FindFirstChild("Blade")
+	local position = blade and blade:FindFirstChild("BladePosition")
+	local orientation = blade and blade:FindFirstChild("BladeOrientation")
+	if not (position and orientation) then return end
+
+	if pinned then
+		if position.Enabled then
+			position.Enabled = false
+			orientation.Enabled = false
+		end
+		local center = root.CFrame * Config.SheathePosition
+		local dir = root.CFrame:VectorToWorldSpace(Config.SheatheDirection.Unit)
+		local up = if math.abs(dir.Y) > 0.99 then Vector3.zAxis else Vector3.yAxis
+		blade.CFrame = CFrame.lookAt(center, center + dir, up)
+		blade.AssemblyLinearVelocity = Vector3.zero -- so it doesn't fall between frames
+		blade.AssemblyAngularVelocity = Vector3.zero
+	elseif bladePinned or not position.Enabled then
+		position.Enabled = true
+		orientation.Enabled = true
+	end
+	bladePinned = pinned
+end
+
 -- Every frame, after the animator: both hands on the blade.
 local function poseHands()
 	local character = player.Character
@@ -614,6 +643,7 @@ local function poseHands()
 
 	-- Blade fully sheathed: the default animation takes over the whole body.
 	if Weapon.isDefaultMode() then
+		pinBladeToHip(character, root, true)
 		-- Reset the joints before the animation starts, and keep checking them while it runs.
 		restoreRestPose(character)
 		if not animationActive then
@@ -633,7 +663,11 @@ local function poseHands()
 		end
 		return
 	end
-	-- Blade being drawn: take the body back from the default animation.
+	-- Blade being drawn: the blade is chased by its constraints again.
+	if bladePinned then
+		pinBladeToHip(character, root, false)
+	end
+	-- Take the body back from the default animation.
 	if animationActive then
 		animationActive = false
 		if not Config.LegAnimation then
@@ -751,6 +785,7 @@ function Weapon.start(menuOpenCheck)
 		sheatheBlend = 0
 		slash = nil
 		swing = Vector2.zero
+		bladePinned = false
 		animationActive = false
 		setDefaultAnimation(character, Config.LegAnimation == true)
 	end
