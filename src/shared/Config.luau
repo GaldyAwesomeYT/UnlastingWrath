@@ -7,7 +7,11 @@ local Config = {
 	WeaponLength = 3.2,           -- studs, blade length
 	AimMaxAngle = 88,             -- degrees from straight ahead at the edge of the cursor circle (left, right, up or down)
 	AimRange = 0.3,               -- radius of the cursor circle, as a fraction of the screen's shorter side (the circle is drawn on screen)
-	GripMotion = 1.0,             -- studs the grip shifts with the cursor, from the chest. Keeps the arms close to the body
+	EdgeTurnSensitivity = 0.004,  -- radians of turn per pixel of mouse movement pushed past the edge of the cursor circle (sideways turns the body and camera)
+	EdgeTurnMaxPixels = 60,       -- most pixels of push counted in one frame, so a sudden mouse jump can't spin the player
+	EdgePitchLimit = 30,          -- degrees the camera can tilt up or down from pushing the cursor past the circle's top or bottom
+	EdgePitchReturn = 1.2,        -- radians per second the camera tilt eases back to level once the vertical push stops
+	GripMotion = 1.0,            -- studs the grip shifts with the cursor, from the chest. Keeps the arms close to the body
 	GuardBlendTime = 0.15,        -- seconds the blade takes to ease into or out of the guard pose (no snapping)
 	AimSensitivity = 1.0,         -- how far the blade moves per pixel of mouse movement (lower = calmer)
 	FreeCursorKey = "LeftAlt",    -- hold to unlock the mouse for GUI buttons. The blade holds still while it's held

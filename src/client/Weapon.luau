@@ -57,7 +57,8 @@ local freeKeyHeld = false -- set by Main.client from the Config.FreeCursorKey in
 local looking = false
 local lookYaw = 0
 local lookPitch = 0
-local pendingTurn = 0 -- yaw from a finished look-around that the body hasn't turned to yet
+local pendingTurn = 0 -- yaw the body hasn't turned to yet: from a finished look-around, or from pushing the cursor past the circle's edge
+local edgePitch = 0 -- camera tilt (radians, up is positive) from pushing the cursor up or down past the circle's edge
 local isMenuOpen = function()
 	return false
 end
@@ -270,10 +271,11 @@ end
 -- and shows the cursor area only while the mouse is locked.
 local mouseHeldByUs = false -- true while this script has locked the mouse, so it is released once when the blade is sheathed
 
-local function updateCursor()
+local function updateCursor(dt)
 	-- Default mode (blade fully sheathed): no cursor circle, no mouse lock, no look-around. The normal
 	-- Roblox camera and mouse controls take over, so we leave them alone.
 	if Weapon.isDefaultMode() then
+		edgePitch = 0
 		if mouseHeldByUs then
 			mouseHeldByUs = false
 			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -310,8 +312,25 @@ local function updateCursor()
 		lookPitch = math.clamp(lookPitch - delta.Y * Config.LookSensitivity, -limit, limit)
 	else
 		aimOffset += Vector2.new(delta.X, delta.Y) * Config.AimSensitivity
+
+		-- Pushing the cursor past the circle turns the player that way: sideways turns the body (and so the
+		-- camera), up or down tilts the camera, easing back to level when the push stops.
+		local pushedVertically = false
 		if aimOffset.Magnitude > aimRadius then
-			aimOffset = aimOffset.Unit * aimRadius
+			local clamped = aimOffset.Unit * aimRadius
+			local excess = aimOffset - clamped
+			aimOffset = clamped
+			local limit = Config.EdgeTurnMaxPixels
+			pendingTurn += math.clamp(excess.X, -limit, limit) * Config.EdgeTurnSensitivity
+			if math.abs(excess.Y) > 0.5 then
+				pushedVertically = true
+				local pitchLimit = math.rad(Config.EdgePitchLimit)
+				edgePitch = math.clamp(edgePitch - math.clamp(excess.Y, -limit, limit) * Config.EdgeTurnSensitivity, -pitchLimit, pitchLimit)
+			end
+		end
+		if not pushedVertically and edgePitch ~= 0 then
+			local back = Config.EdgePitchReturn * dt
+			edgePitch = math.sign(edgePitch) * math.max(math.abs(edgePitch) - back, 0)
 		end
 	end
 
@@ -462,7 +481,7 @@ end
 
 local function driveCharacterBlade(dt)
 	updateQuickDraw(dt)
-	updateCursor()
+	updateCursor(dt)
 	setMovementLocked(Weapon.isFree())
 
 	-- Ease the guard in and out.
@@ -766,7 +785,7 @@ end
 
 -- The camera's look-around offsets from the body's facing: yaw (right is positive), pitch (up is positive).
 function Weapon.getLook()
-	return lookYaw, lookPitch
+	return lookYaw, lookPitch + edgePitch
 end
 
 -- Guard button held or released. Guard can't be raised while the cursor is free.
@@ -801,6 +820,7 @@ function Weapon.start(menuOpenCheck)
 		sheatheBlend = 0
 		slash = nil
 		swing = Vector2.zero
+		edgePitch = 0
 		bladePinned = false
 		animationActive = false
 		setDefaultAnimation(character, Config.LegAnimation == true)
