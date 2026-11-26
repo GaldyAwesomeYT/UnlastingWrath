@@ -1,12 +1,6 @@
 # Roblox Game
 
-Source is kept in `src/` and synced into Roblox Studio with Rojo.
-
-## Setup
-
-1. Install [Rokit](https://github.com/rojo-rbx/rokit), then run `rokit install` to get Rojo.
-2. Install the Rojo plugin in Roblox Studio.
-3. Run `rojo serve`, then click **Connect** in the Rojo plugin inside Studio.
+Scripts live in Roblox Studio and are edited through the Roblox Studio MCP server. `src/` is a mirror of them kept for git history. Rojo is no longer used.
 
 ## Layout
 

@@ -3,9 +3,9 @@
 A Roblox PvP/PvE game built around a blade. Players swing it with the mouse, guard with F, and clash blades to parry.
 
 ## Stack and workflow
-- Luau code lives in `src/`, synced into Roblox Studio with **Rojo** (version pinned in `rokit.toml`, currently 7.7.1).
-- Start the sync with `rojo serve` from the project folder, then click Connect in the Rojo widget in Studio.
-- The Studio place file is saved by Studio, not by Rojo. Don't expect code edits to save the place.
+- Rojo is no longer used. Scripts are edited directly in Roblox Studio through the Roblox_Studio MCP server (Edit mode only; the Edit datamodel is blocked during Play). Studio is the source of truth.
+- `src/` is a mirror: after every change made in Studio, copy the same change into the matching file in `src/` and commit it. (`default.project.json` and `rokit.toml` are left over from Rojo and unused.)
+- After every change, save the place with the MCP `save_place` tool (same as File > Save to Roblox). Saving never publishes.
 - Test with Studio's Play button. There is no automated test suite yet.
 
 ## Layout
