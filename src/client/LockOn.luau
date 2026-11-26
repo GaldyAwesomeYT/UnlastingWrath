@@ -2,7 +2,7 @@
 -- camera follows the body's facing and movement is relative to the camera, A and D then strafe around
 -- the opponent instead of turning the player.
 --   * In a match, the target is the other fighter. Outside a match, it is the nearest training dummy
---     in range (Config.LockOnRange).
+--     in range (Config.LockOnRange). In Training, only the player's own dummy counts.
 --   * On by default. The player's "LockOn" binding (Controls) toggles it. With no target, or switched off, the player turns the
 --     old way (the body turns toward where it moves).
 --   * The current target is kept until it dies, leaves, or goes out of range, so the lock doesn't flick
@@ -67,6 +67,15 @@ local function validTarget(character, myRoot)
 	end
 	-- No match: only training dummies (models that aren't a player's character), within range.
 	if Players:GetPlayerFromCharacter(character) then
+		return false
+	end
+	-- Someone else's training dummy is never a target. In Training, only the player's own dummy is (the
+	-- shared arena dummy is skipped, so the lock can't grab it just because it is nearer).
+	local owner = character:GetAttribute("OwnerUserId")
+	if owner ~= nil and owner ~= player.UserId then
+		return false
+	end
+	if player:GetAttribute("Training") and owner ~= player.UserId then
 		return false
 	end
 	return (character.HumanoidRootPart.Position - myRoot.Position).Magnitude <= Config.LockOnRange

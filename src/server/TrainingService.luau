@@ -32,6 +32,7 @@ function TrainingService.stop(player)
 	local session = sessions[player]
 	if not session then return end
 	sessions[player] = nil
+	player:SetAttribute("Training", nil)
 	session.connection:Disconnect()
 	if session.dummy then
 		session.dummy:Destroy()
@@ -46,6 +47,9 @@ function TrainingService.start(player, difficultyName)
 	local session = {}
 	sessions[player] = session
 	session.dummy = CombatService.spawnDummy(DUMMY_POSITION, stats, "TrainingDummy")
+	-- Lets the client's lock-on pick this player's own dummy, not the shared arena dummy or someone else's.
+	session.dummy:SetAttribute("OwnerUserId", player.UserId)
+	player:SetAttribute("Training", true)
 	-- Respawns (after a death) go back to the training spot.
 	session.connection = player.CharacterAdded:Connect(placePlayer)
 
