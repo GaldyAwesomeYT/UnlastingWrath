@@ -130,6 +130,9 @@ local function resetAfterKill(message)
 		if humanoid and humanoid.Health > 0 then
 			humanoid.Health = humanoid.MaxHealth
 		end
+		if player.Character then
+			CombatService.clearClash(player.Character) -- empty the Max-Clash bar and end any weakened state
+		end
 	end
 	RoundState.paused = false
 	broadcast("FIGHT!")

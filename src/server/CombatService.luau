@@ -1,8 +1,11 @@
 -- Server-authoritative combat: blade hits, clashes (parries), guard, stuns, and dummy AI.
--- The client drives the blade (Weapon.luau). Every heartbeat the server reads each player's
--- replicated blade and resolves:
+-- The client drives each player's blade (Weapon.luau); the server drives each dummy's sword. Every heartbeat
+-- the server reads every replicated blade and resolves:
 --   * hits: a moving blade (tip speed at least Config.HitMinSpeed) touches a body part of another living character
---   * clashes: two blades touch. The faster tip wins the parry and the slower player is stunned.
+--   * clashes: two blades touch. A player's blade clashing with a dummy's sword is a parry: the dummy is stunned.
+--     Two players clashing stun nobody; each fills their Max-Clash bar instead. A full bar weakens the player
+--     (slower walking, slower blade, less damage) for Config.WeakenedDuration. The bar drains after
+--     Config.ClashBarIdleTime seconds without a clash.
 -- Damage: scales with the body part the blade touches (Config.HitMultipliers): head, torso, or limb.
 -- Guard (held button): the client puts the blade in front of the body. While guarding, damage is reduced.
 local Players = game:GetService("Players")
@@ -21,6 +24,9 @@ local lastHits = setmetatable({}, { __mode = "k" })
 -- Per-character combat state, keyed by the character Model (cleaned up automatically).
 local states = setmetatable({}, { __mode = "k" })
 
+-- Dummies that carry a sword, keyed by their model (see spawnDummy). Entries are removed once the model is destroyed.
+local dummies = {}
+
 local function getState(character)
 	local s = states[character]
 	if not s then
@@ -30,6 +36,14 @@ local function getState(character)
 			dashUntil = -math.huge,
 			guarding = false,
 			sheathed = false,    -- blade on the hip: it can't hit, clash or guard
+			canHit = true,       -- false while a dummy's sword isn't mid-swing (it can still clash)
+			clash = 0,           -- Max-Clash bar, 0 to 1
+			lastClash = -math.huge, -- time of this character's last player-vs-player clash
+			weakened = false,    -- the bar filled: slowed, slower blade, less damage until weakenedUntil
+			weakenedUntil = 0,
+			baseWalkSpeed = 16,  -- walk speed to restore when weakened ends
+			clashPublished = 0,  -- last bar value sent to clients (the ClashBar attribute)
+			clashPublishedAt = 0,
 			quickDrawUntil = -math.huge, -- hits before this time get Config.QuickDrawBonus (a draw slash)
 			hitAt = {},          -- [target character] = last time this blade hit it
 			clashAt = {},        -- [other character] = last time these blades clashed
@@ -53,6 +67,92 @@ end
 local function isAlive(character)
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	return humanoid ~= nil and humanoid.Health > 0 and character:FindFirstChild("HumanoidRootPart") ~= nil
+end
+
+-- Max-Clash bar. The value is shown on the owner's HUD through the "ClashBar" character attribute (0 to 1);
+-- while weakened it shows the time left instead, and the "Weakened" attribute is true.
+local function publishClash(character, s, ratio, force)
+	local now = os.clock()
+	ratio = math.clamp(ratio, 0, 1)
+	if force or (ratio ~= s.clashPublished and now - s.clashPublishedAt >= 0.1) then
+		s.clashPublished, s.clashPublishedAt = ratio, now
+		character:SetAttribute("ClashBar", ratio)
+	end
+end
+
+-- The blade's two constraints decide how fast it follows the mouse; lowering them slows the blade.
+local function setBladeResponsiveness(character, value)
+	local blade = character:FindFirstChild("Blade")
+	if not blade then return end
+	local position = blade:FindFirstChild("BladePosition")
+	local orientation = blade:FindFirstChild("BladeOrientation")
+	if position then position.Responsiveness = value end
+	if orientation then orientation.Responsiveness = value end
+end
+
+local function startWeakened(character, s, now)
+	s.weakened = true
+	s.weakenedUntil = now + Config.WeakenedDuration
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		s.baseWalkSpeed = humanoid.WalkSpeed
+		humanoid.WalkSpeed = s.baseWalkSpeed * Config.WeakenedSpeedMultiplier
+	end
+	setBladeResponsiveness(character, Config.WeaponResponsiveness * Config.WeakenedBladeResponsiveness)
+	character:SetAttribute("Weakened", true)
+	publishClash(character, s, 1, true)
+	notify(character, "Weakened", Config.WeakenedDuration)
+end
+
+local function endWeakened(character, s)
+	s.weakened = false
+	s.clash = 0
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.WalkSpeed = s.baseWalkSpeed
+	end
+	setBladeResponsiveness(character, Config.WeaponResponsiveness)
+	character:SetAttribute("Weakened", false)
+	publishClash(character, s, 0, true)
+end
+
+-- A player-vs-player clash: fills the bar. A full bar weakens the player. The bar doesn't fill while weakened.
+local function addClash(character, s, now)
+	s.lastClash = now
+	if s.weakened then return end
+	s.clash = math.min(1, s.clash + Config.ClashBarGain)
+	if s.clash >= 1 then
+		startWeakened(character, s, now)
+	else
+		publishClash(character, s, s.clash, true)
+	end
+end
+
+-- Every heartbeat: ends the weakened state on time, or drains the bar after Config.ClashBarIdleTime seconds
+-- without a clash.
+local function updateClashBar(character, s, now, dt)
+	if s.weakened then
+		if now >= s.weakenedUntil then
+			endWeakened(character, s)
+		else
+			publishClash(character, s, (s.weakenedUntil - now) / Config.WeakenedDuration)
+		end
+	elseif s.clash > 0 and now - s.lastClash >= Config.ClashBarIdleTime then
+		s.clash = math.max(0, s.clash - Config.ClashBarDrainPerSecond * dt)
+		publishClash(character, s, s.clash, s.clash == 0)
+	end
+end
+
+-- Empties the bar and ends any weakened state (used when fighters are reset).
+function CombatService.clearClash(character)
+	local s = states[character]
+	if not s then return end
+	if s.weakened then
+		endWeakened(character, s)
+	elseif s.clash > 0 then
+		s.clash = 0
+		publishClash(character, s, 0, true)
+	end
 end
 
 -- Every living character or dummy in the workspace, except `except`.
@@ -171,6 +271,9 @@ local function resolveHit(attacker, target, multiplier)
 	end
 
 	local damage = Config.AttackDamage * (multiplier or 1)
+	if getState(attacker).weakened then
+		damage = damage * Config.WeakenedDamageMultiplier
+	end
 	if targetState.guarding then
 		damage = damage * (1 - Config.BlockReduction)
 		notify(target, "Blocked")
@@ -182,27 +285,48 @@ local function resolveHit(attacker, target, multiplier)
 	notify(attacker, "Hit")
 end
 
--- Two blades touched. The faster tip wins the parry; the slower player is stunned.
+-- Two blades touched. Against a dummy's sword it is a parry: the dummy is stunned. Between two players nobody
+-- is stunned; both fill their Max-Clash bar and can keep moving their blades.
 local function resolveClash(a, b, now)
-	local sa, sb = getState(a), getState(b)
-	local winner, loser = a, b
-	if sb.speed > sa.speed then
-		winner, loser = b, a
+	local dummy, fighter
+	if dummies[a] then
+		dummy, fighter = a, b
+	elseif dummies[b] then
+		dummy, fighter = b, a
 	end
-	getState(loser).stunnedUntil = now + Config.ParryStunDuration
-	notify(winner, "Parried")
-	notify(loser, "Stunned", Config.ParryStunDuration)
+	if dummy then
+		getState(dummy).stunnedUntil = now + Config.ParryStunDuration
+		notify(fighter, "Parried")
+		return
+	end
+
+	for _, character in ipairs({ a, b }) do
+		addClash(character, getState(character), now)
+		notify(character, "Clash")
+	end
 end
 
 -- Each heartbeat: measure every blade's tip speed relative to its body (so walking and dashing
 -- don't count as swinging), then resolve hits and clashes.
-local function checkSwings()
+local function checkSwings(dt)
 	local now = os.clock()
+
+	-- Everyone who can hold a blade: each player's character, then the dummies.
+	local characters = {}
+	for _, attackerPlayer in ipairs(Players:GetPlayers()) do
+		local character = attackerPlayer.Character
+		if character then
+			updateClashBar(character, getState(character), now, dt)
+			table.insert(characters, character)
+		end
+	end
+	for model in pairs(dummies) do
+		table.insert(characters, model)
+	end
 
 	-- Pass 1: read each blade.
 	local swinging = {} -- list of characters with a blade this heartbeat
-	for _, attackerPlayer in ipairs(Players:GetPlayers()) do
-		local character = attackerPlayer.Character
+	for _, character in ipairs(characters) do
 		local blade = character and character:FindFirstChild("Blade")
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if blade and root and isAlive(character) then
@@ -235,12 +359,14 @@ local function checkSwings()
 	-- Pass 2: hits (blade touches a living target) and clashes (two blades touch).
 	for _, character in ipairs(swinging) do
 		local s = getState(character)
-		if not (RoundState.paused or s.sheathed or now < s.stunnedUntil) then
+		if not (RoundState.paused or s.sheathed or now < s.stunnedUntil) and s.canHit then
 			-- A blade held still against someone doesn't hurt them; it has to be swung.
 			if s.speed >= Config.HitMinSpeed then
 				for _, target in ipairs(allFighters(character)) do
 					local last = s.hitAt[target]
-					if not last or now - last >= Config.HitCooldown then
+					-- A dummy's sword only hurts players, never other dummies.
+					local targetOk = not dummies[character] or Players:GetPlayerFromCharacter(target) ~= nil
+					if targetOk and (not last or now - last >= Config.HitCooldown) then
 						local part = bladeHitPart(target, s.seg.base, s.seg.tip)
 						if part then
 							s.hitAt[target] = now
@@ -257,8 +383,17 @@ local function checkSwings()
 		for j = i + 1, #swinging do
 			local a, b = swinging[i], swinging[j]
 			local sa, sb = getState(a), getState(b)
-			if not (RoundState.paused or sa.sheathed or sb.sheathed or now < sa.stunnedUntil or now < sb.stunnedUntil) and canFight(a, b)
-				and sa.speed >= Config.ClashMinSpeed and sb.speed >= Config.ClashMinSpeed
+			-- Two players need both blades moving. Against a dummy, one moving blade is enough, so a held
+			-- blade can parry a dummy's swing and a swing can knock a dummy's sword aside.
+			local aDummy, bDummy = dummies[a] ~= nil, dummies[b] ~= nil
+			local fastEnough
+			if aDummy or bDummy then
+				fastEnough = math.max(sa.speed, sb.speed) >= Config.ClashMinSpeed
+			else
+				fastEnough = sa.speed >= Config.ClashMinSpeed and sb.speed >= Config.ClashMinSpeed
+			end
+			if not (aDummy and bDummy) and fastEnough
+				and not (RoundState.paused or sa.sheathed or sb.sheathed or now < sa.stunnedUntil or now < sb.stunnedUntil) and canFight(a, b)
 				and (not sa.clashAt[b] or now - sa.clashAt[b] >= Config.ClashCooldown)
 				and segmentSegmentDistance(sa.seg.base, sa.seg.tip, sb.seg.base, sb.seg.tip) <= Config.ClashRadius then
 				sa.clashAt[b] = now
@@ -336,32 +471,133 @@ local function nearestLivingPlayer(model)
 	return best
 end
 
--- Starts a dummy's AI: telegraph, wind up, then swing. `stats` = { attackInterval, windup }.
--- Dummies have no blade, so their swings can be blocked by guarding but not parried.
--- The loop ends when the model is destroyed.
-local function startDummyAI(model, stats)
-	local humanoid = model:FindFirstChildOfClass("Humanoid")
-	task.spawn(function()
-		while model.Parent do
-			if humanoid.Health <= 0 then
-				task.wait(3)
-				humanoid.Health = humanoid.MaxHealth
-			end
-			task.wait(stats.attackInterval)
+-- Dummy swords. Each dummy holds a physical sword (parts named "Blade" and "Grip", like a player's) that the
+-- server moves every heartbeat, so the normal hit and clash checks apply to it. A swing has phases:
+--   rest -> windup (the target gets "Telegraph"; the sword is raised) -> swing (a flat slash, the only time it
+--   can hurt) -> recover (the sword is lowered) -> rest.
+-- A player's blade clashing with the sword stuns the dummy (see resolveClash), which cancels its swing.
+-- Poses are a grip point and a blade direction in the dummy root's space (+X right, +Y up, -Z forward).
+local REST_GRIP, REST_DIR = Vector3.new(1.1, -0.3, -0.8), Vector3.new(0.2, 0.5, -1)
+local WINDUP_GRIP, WINDUP_DIR = Vector3.new(1.2, 0.8, -0.4), Vector3.new(0.4, 1, -0.3)
+local STUN_GRIP, STUN_DIR = Vector3.new(1.0, -0.8, -0.4), Vector3.new(0.3, -0.8, -0.5)
+local SWING_GRIP = Vector3.new(0.4, 0.2, -0.8)
+local SWING_FROM, SWING_TO = 75, -75 -- degrees of yaw, positive = right of forward
+local DUMMY_SKIN = Color3.fromRGB(255, 200, 150)
+local DUMMY_STUNNED = Color3.fromRGB(110, 150, 255)
 
-			local target = nearestLivingPlayer(model)
-			if target and humanoid.Health > 0 and not RoundState.paused and os.clock() >= getState(model).stunnedUntil then
-				notify(target, "Telegraph")
-				task.wait(stats.windup)
-
-				if model.Parent and humanoid.Health > 0 and not RoundState.paused and os.clock() >= getState(model).stunnedUntil
-					and isAlive(target) then
-					resolveHit(model, target, 1)
-				end
-			end
-		end
-	end)
+local function swingDir(degrees)
+	local a = math.rad(degrees)
+	return Vector3.new(math.sin(a), 0, -math.cos(a))
 end
+
+local function placeDummyBlade(d, grip, dir)
+	local rootCFrame = d.root.CFrame
+	local worldDir = rootCFrame:VectorToWorldSpace(dir.Unit)
+	local center = rootCFrame:PointToWorldSpace(grip) + worldDir * (Config.WeaponLength / 2)
+	d.blade.CFrame = CFrame.lookAt(center, center + worldDir)
+	d.handle.CFrame = d.blade.CFrame * CFrame.new(0, 0, Config.WeaponLength / 2 + 0.3)
+end
+
+-- Turns the dummy (flat, around its own height) to face a character.
+local function faceDummy(d, target)
+	local from = d.root.Position
+	local to = target.HumanoidRootPart.Position
+	local flat = Vector3.new(to.X, from.Y, to.Z)
+	if (flat - from).Magnitude > 0.1 then
+		d.model:PivotTo(CFrame.lookAt(from, flat))
+	end
+end
+
+local function updateDummy(d, now)
+	local model, humanoid, stats = d.model, d.humanoid, d.stats
+	local s = getState(model)
+
+	-- A killed dummy puts its sword down and heals back to full after Config.DummyReviveTime.
+	if humanoid.Health <= 0 then
+		d.deadAt = d.deadAt or now
+		d.phase = "rest"
+		s.canHit = false
+		if now - d.deadAt >= Config.DummyReviveTime then
+			humanoid.Health = humanoid.MaxHealth
+			d.deadAt = nil
+			d.nextAttack = now + stats.attackInterval
+		end
+		placeDummyBlade(d, REST_GRIP, REST_DIR)
+		return
+	end
+	d.deadAt = nil
+
+	-- A stun (or a paused round) cancels the swing in progress and lowers the sword.
+	local stunned = now < s.stunnedUntil
+	d.head.Color = stunned and DUMMY_STUNNED or DUMMY_SKIN
+	if stunned or RoundState.paused then
+		if d.phase ~= "rest" then
+			d.phase = "rest"
+			d.nextAttack = now + stats.attackInterval
+		end
+		s.canHit = false
+		if stunned then
+			placeDummyBlade(d, STUN_GRIP, STUN_DIR)
+		else
+			placeDummyBlade(d, REST_GRIP, REST_DIR)
+		end
+		return
+	end
+
+	-- Phase changes.
+	if d.phase == "rest" and now >= d.nextAttack then
+		local target = nearestLivingPlayer(model)
+		if target then
+			d.target = target
+			d.phase, d.phaseStart = "windup", now
+			notify(target, "Telegraph")
+		end
+	end
+	if d.phase == "windup" then
+		if isAlive(d.target) then
+			faceDummy(d, d.target) -- keeps tracking until the swing starts, so a sidestep during the windup still works
+			if now - d.phaseStart >= stats.windup then
+				d.phase, d.phaseStart = "swing", now
+			end
+		else
+			d.phase = "rest"
+			d.nextAttack = now + stats.attackInterval
+		end
+	end
+	if d.phase == "swing" and now - d.phaseStart >= Config.DummySwingTime then
+		d.phase, d.phaseStart = "recover", now
+	end
+	if d.phase == "recover" and now - d.phaseStart >= Config.DummyRecoverTime then
+		d.phase = "rest"
+		d.nextAttack = now + stats.attackInterval
+	end
+
+	-- Pose the sword for the current phase.
+	s.canHit = d.phase == "swing"
+	if d.phase == "windup" then
+		local t = math.clamp((now - d.phaseStart) / stats.windup, 0, 1)
+		placeDummyBlade(d, REST_GRIP:Lerp(WINDUP_GRIP, t), REST_DIR.Unit:Lerp(WINDUP_DIR.Unit, t))
+	elseif d.phase == "swing" then
+		local t = math.clamp((now - d.phaseStart) / Config.DummySwingTime, 0, 1)
+		placeDummyBlade(d, SWING_GRIP, swingDir(SWING_FROM + (SWING_TO - SWING_FROM) * t))
+	elseif d.phase == "recover" then
+		local t = math.clamp((now - d.phaseStart) / Config.DummyRecoverTime, 0, 1)
+		placeDummyBlade(d, SWING_GRIP:Lerp(REST_GRIP, t), swingDir(SWING_TO):Lerp(REST_DIR.Unit, t))
+	else
+		placeDummyBlade(d, REST_GRIP, REST_DIR)
+	end
+end
+
+RunService.Heartbeat:Connect(function()
+	local now = os.clock()
+	for model, d in pairs(dummies) do
+		if model.Parent then
+			updateDummy(d, now)
+		else
+			dummies[model] = nil
+		end
+	end
+end)
 
 local function makePart(name, size, cframe, parent)
 	local part = Instance.new("Part")
@@ -373,8 +609,8 @@ local function makePart(name, size, cframe, parent)
 	return part
 end
 
--- Builds a dummy at `position` with `stats` = { health, attackInterval, windup }, parents it to the
--- workspace, starts its AI, and returns the model.
+-- Builds a dummy at `position` with `stats` = { health, attackInterval, windup }, gives it a sword, parents it
+-- to the workspace, starts its AI (updateDummy), and returns the model.
 function CombatService.spawnDummy(position, stats, name)
 	local model = Instance.new("Model")
 	model.Name = name
@@ -382,11 +618,20 @@ function CombatService.spawnDummy(position, stats, name)
 	local root = makePart("HumanoidRootPart", Vector3.new(2, 2, 1), CFrame.new(position), model)
 	root.Transparency = 1
 	local head = makePart("Head", Vector3.new(2, 1, 1), CFrame.new(position + Vector3.new(0, 1.5, 0)), model)
-	head.Color = Color3.fromRGB(255, 200, 150)
+	head.Color = DUMMY_SKIN
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = root
 	weld.Part1 = head
 	weld.Parent = root
+
+	-- The sword: anchored and moved by updateDummy. The names match a player's blade so hit checks skip them.
+	local blade = makePart("Blade", Vector3.new(0.2, 0.1, Config.WeaponLength), CFrame.new(position), model)
+	blade.Color = Color3.fromRGB(200, 205, 215)
+	blade.Material = Enum.Material.Metal
+	blade.CanCollide = false
+	local handle = makePart("Grip", Vector3.new(0.35, 0.35, 0.9), CFrame.new(position), model)
+	handle.Color = Color3.fromRGB(60, 45, 35)
+	handle.CanCollide = false
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.MaxHealth = stats.health
@@ -398,7 +643,18 @@ function CombatService.spawnDummy(position, stats, name)
 
 	model.PrimaryPart = root
 	model.Parent = workspace
-	startDummyAI(model, stats)
+	dummies[model] = {
+		model = model,
+		humanoid = humanoid,
+		root = root,
+		head = head,
+		blade = blade,
+		handle = handle,
+		stats = stats,
+		phase = "rest",
+		phaseStart = os.clock(),
+		nextAttack = os.clock() + stats.attackInterval,
+	}
 	return model
 end
 

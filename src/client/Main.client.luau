@@ -87,6 +87,8 @@ local FEEDBACK = {
 	Hit = { text = "HIT", color = Color3.fromRGB(255, 255, 255) },
 	Dodged = { text = "DODGE!", color = Color3.fromRGB(120, 200, 255) },
 	Blocked = { text = "BLOCK", color = Color3.fromRGB(200, 200, 200) },
+	Clash = { text = "CLASH!", color = Color3.fromRGB(255, 170, 60) },
+	Weakened = { text = "WEAKENED", color = Color3.fromRGB(190, 110, 255) },
 }
 
 -- Parry effects: a green screen flash and an optional sound on the defender's screen.
@@ -232,6 +234,53 @@ RunService.RenderStepped:Connect(function()
 	stunBack.Visible = true
 	stunFill.Size = UDim2.fromScale(math.clamp(remaining / stunDuration, 0, 1), 1)
 end)
+
+-- Max-Clash bar (above the dash bar). The server sends the value through the character's "ClashBar"
+-- attribute (0 to 1) and sets "Weakened" while the player is weakened, when the bar counts the time left down.
+-- Hidden while empty.
+local clashBack = Instance.new("Frame")
+clashBack.Name = "ClashBack"
+clashBack.Size = UDim2.fromOffset(260, 12)
+clashBack.Position = UDim2.new(0, 16, 1, -116)
+clashBack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+clashBack.BorderSizePixel = 0
+clashBack.Visible = false
+clashBack.Parent = gui
+
+local clashFill = Instance.new("Frame")
+clashFill.Name = "Fill"
+clashFill.Size = UDim2.fromScale(0, 1)
+clashFill.BackgroundColor3 = Color3.fromRGB(255, 170, 60)
+clashFill.BorderSizePixel = 0
+clashFill.Parent = clashBack
+
+local clashLabel = Instance.new("TextLabel")
+clashLabel.Size = UDim2.fromScale(1, 1)
+clashLabel.BackgroundTransparency = 1
+clashLabel.Font = Enum.Font.GothamBold
+clashLabel.TextSize = 11
+clashLabel.TextColor3 = Color3.new(1, 1, 1)
+clashLabel.Text = "MAX-CLASH"
+clashLabel.Parent = clashBack
+
+local function bindClash(character)
+	local function update()
+		local value = character:GetAttribute("ClashBar") or 0
+		local weakened = character:GetAttribute("Weakened") == true
+		clashBack.Visible = value > 0 or weakened
+		clashFill.Size = UDim2.fromScale(math.clamp(value, 0, 1), 1)
+		clashFill.BackgroundColor3 = weakened and Color3.fromRGB(190, 110, 255) or Color3.fromRGB(255, 170, 60)
+		clashLabel.Text = weakened and "WEAKENED" or "MAX-CLASH"
+	end
+	character:GetAttributeChangedSignal("ClashBar"):Connect(update)
+	character:GetAttributeChangedSignal("Weakened"):Connect(update)
+	update()
+end
+
+if player.Character then
+	bindClash(player.Character)
+end
+player.CharacterAdded:Connect(bindClash)
 
 -- Opponent HP bars (top right): one per other player, read from their replicated Humanoid.
 local opponentPanel = Instance.new("Frame")

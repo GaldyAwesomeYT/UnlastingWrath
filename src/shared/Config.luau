@@ -49,9 +49,17 @@ local Config = {
 
 	-- Clash (parry) and guard
 	ClashRadius = 0.5,            -- studs between two blades that counts as a clash
-	ClashMinSpeed = 15,           -- studs/second: both blades must be moving at least this fast to clash
+	ClashMinSpeed = 15,           -- studs/second: both player blades must be moving at least this fast to clash (against a dummy, one moving blade is enough)
 	ClashCooldown = 0.4,          -- seconds before the same two blades can clash again
-	ParryStunDuration = 1.2,      -- the slower blade's player is stunned this long after a clash
+	ParryStunDuration = 1.2,      -- a dummy is stunned this long when a player's blade clashes with its sword (player-vs-player clashes stun nobody)
+	-- Max-Clash bar: every player-vs-player clash fills it for both players. Full = weakened.
+	ClashBarGain = 0.2,           -- fraction of the bar added to both players per clash (0.2 = five clashes fill it)
+	ClashBarIdleTime = 3,         -- seconds without a clash before the bar starts to drain
+	ClashBarDrainPerSecond = 0.25, -- fraction of the bar lost per second once it is draining
+	WeakenedDuration = 5,         -- seconds a player stays weakened after the bar fills (the bar empties over this time, then resets)
+	WeakenedSpeedMultiplier = 0.5, -- walk speed multiplier while weakened
+	WeakenedBladeResponsiveness = 0.25, -- multiplier on WeaponResponsiveness while weakened (lower = the blade takes longer to move)
+	WeakenedDamageMultiplier = 0.5, -- damage multiplier for the weakened player's hits
 	ParrySoundId = "",            -- e.g. "rbxassetid://123456789"; leave empty for silent parries
 	BlockReduction = 0.3,         -- fraction of attack damage removed while guarding (30%)
 
@@ -74,9 +82,12 @@ local Config = {
 
 	-- PvE training dummy
 	DummyHealth = 100,
-	DummyAggroRange = 15,         -- studs
+	DummyAggroRange = 6,          -- studs; a dummy swings its sword when a player is this close (the sword reaches about 4 studs)
 	DummyAttackInterval = 2.5,    -- seconds between dummy swings
-	DummyWindup = 0.7,            -- telegraph time before a dummy swing lands
+	DummyWindup = 0.7,            -- telegraph time: the sword is raised this long before the swing
+	DummySwingTime = 0.25,        -- seconds the dummy's slash takes
+	DummyRecoverTime = 0.4,       -- seconds the dummy takes to lower its sword after a swing
+	DummyReviveTime = 3,          -- seconds a killed dummy waits before it is healed back to full
 
 	-- Game modes and training difficulty (picked on the title menu)
 	GameModes = { "Duel", "Training" }, -- Duel: 1v1 ready-up queue. Training: you vs your own dummy.
