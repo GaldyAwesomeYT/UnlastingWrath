@@ -391,6 +391,9 @@ function CombatService.spawnDummy(position, stats, name)
 	local humanoid = Instance.new("Humanoid")
 	humanoid.MaxHealth = stats.health
 	humanoid.Health = stats.health
+	-- A Humanoid that enters the Dead state ignores later Health writes, so the AI's heal after a kill would
+	-- never work. Dummies have no joints to break, so they simply sit at 0 health until healed.
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 	humanoid.Parent = model
 
 	model.PrimaryPart = root
