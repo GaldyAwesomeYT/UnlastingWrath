@@ -68,6 +68,9 @@ local Config = {
 	MatchSize = 2,                -- players who must press Ready before the lobby countdown starts (1v1)
 	FighterSpawnX = 12,           -- fighters stand at x = -FighterSpawnX and +FighterSpawnX, facing each other
 	FighterSpawnY = 3,            -- height of the fighter spawn points (studs above y = 0)
+	DuelArenaCenter = Vector3.new(-127.5, 6.5, -88.5), -- center of the sumo arena's dohyo (SumoArena model); 1v1 duels happen here (y is just above its floor)
+	DuelSpawnOffset = 6,          -- duel fighters stand this far either side of the dohyo center along x, facing each other
+	DuelEndReturnDelay = 3,       -- seconds after a match ends before the fighters are sent back to the lobby
 	LobbyCountdown = 5,           -- seconds before each match starts (ready players must stay ready)
 	IntermissionTime = 5,         -- seconds after a round ends
 	-- Round start duel intro: wide shot, close on fighter A, close on fighter B, wide shot, pan to follow view.

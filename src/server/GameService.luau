@@ -79,10 +79,10 @@ local function pickFighters()
 	return picked
 end
 
--- Fighter start positions: opposite sides of the arena, each facing the other.
+-- Fighter start positions: opposite sides of the sumo arena's dohyo, each facing the other.
 local SPAWN_SPOTS = {
-	Vector3.new(-Config.FighterSpawnX, Config.FighterSpawnY, 0),
-	Vector3.new(Config.FighterSpawnX, Config.FighterSpawnY, 0),
+	Config.DuelArenaCenter + Vector3.new(-Config.DuelSpawnOffset, 0, 0),
+	Config.DuelArenaCenter + Vector3.new(Config.DuelSpawnOffset, 0, 0),
 }
 local matchFighters = {} -- the current match's fighters, in SPAWN_SPOTS order
 
@@ -320,6 +320,14 @@ local function runLoop()
 			task.wait(0.25)
 		end
 		Remotes.MatchStart:FireAllClients({}) -- empty list: the match is over, clients clear fighter UI
+		-- Send the fighters back to the lobby (a respawn lands on the lobby's SpawnLocation).
+		local finished = matchFighters
+		task.wait(Config.DuelEndReturnDelay)
+		for _, player in ipairs(finished) do
+			if player.Parent then
+				task.spawn(function() player:LoadCharacter() end)
+			end
+		end
 		task.wait(Config.IntermissionTime)
 	end
 end
