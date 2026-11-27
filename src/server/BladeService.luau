@@ -40,13 +40,16 @@ local function getLooks()
 		if part:IsA("BasePart") then tip = math.max(tip, zMax(part)) end
 	end
 	local origin = tsuba.Position
-	looks = { sword = sword, saya = saya, origin = origin, scale = (Config.WeaponLength - HAND_BACK) / (tip - origin.Z) }
+	-- The two models were laid out side by side along X; shifting the saya's origin by that gap puts the
+	-- saya back around the blade.
+	local gap = Vector3.new(saya:GetPivot().X - sword:GetPivot().X, 0, 0)
+	looks = { sword = sword, saya = saya, origin = origin, sayaOrigin = origin + gap, scale = (Config.WeaponLength - HAND_BACK) / (tip - origin.Z) }
 	return looks
 end
 
 -- Clones `template` with every part scaled, flipped and placed relative to `anchor` (the tsuba's pose),
 -- welded to `attachTo`.
-local function dress(template, anchor, attachTo, parent, name)
+local function dress(template, origin, anchor, attachTo, parent, name)
 	local info = getLooks()
 	local model = Instance.new("Model") -- a Model, so the hit code (which only reads the character's direct parts) skips it
 	model.Name = name
@@ -55,7 +58,7 @@ local function dress(template, anchor, attachTo, parent, name)
 			local part = source:Clone()
 			part:ClearAllChildren()
 			part.Size = source.Size * info.scale
-			part.CFrame = anchor * FLIP * CFrame.new((source.Position - info.origin) * info.scale) * source.CFrame.Rotation
+			part.CFrame = anchor * FLIP * CFrame.new((source.Position - origin) * info.scale) * source.CFrame.Rotation
 			part.Anchored = false
 			part.CanCollide = false
 			part.CanQuery = false
@@ -134,10 +137,10 @@ local function buildBlade(character, player)
 	if not getLooks().missing then
 		blade.Transparency = 1
 		handle.Transparency = 1
-		dress(looks.sword, blade.CFrame * CFrame.new(0, 0, HALF - HAND_BACK), blade, character, "Katana")
+		dress(looks.sword, looks.origin, blade.CFrame * CFrame.new(0, 0, HALF - HAND_BACK), blade, character, "Katana")
 
 		local sheathed = CFrame.lookAt(Config.SheathePosition, Config.SheathePosition + Config.SheatheDirection.Unit)
-		dress(looks.saya, root.CFrame * sheathed * CFrame.new(0, 0, HALF - HAND_BACK), root, character, "Saya")
+		dress(looks.saya, looks.sayaOrigin, root.CFrame * sheathed * CFrame.new(0, 0, HALF - HAND_BACK), root, character, "Saya")
 	end
 end
 
