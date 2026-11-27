@@ -395,6 +395,12 @@ readyButton.BorderSizePixel = 0
 readyButton.Parent = gui
 readyButton.Visible = false -- shown after Play in Duel mode (see the title menu's onPlay below)
 
+-- The button shows in Duel mode, except while this player is fighting in a match.
+local duelMode, inMatch = false, false
+local function refreshReadyVisible()
+	readyButton.Visible = duelMode and not inMatch
+end
+
 local isReady = false
 local function setReadyLocal(value)
 	isReady = value
@@ -517,11 +523,16 @@ end
 Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
 	setOpponentBars(fighters)
 	LockOn.setFighters(fighters)
+	inMatch = false
 	for _, fighter in ipairs(fighters) do
 		if fighter == player then
-			task.spawn(playDuelIntro, fighters)
-			return
+			inMatch = true
+			break
 		end
+	end
+	refreshReadyVisible()
+	if inMatch then
+		task.spawn(playDuelIntro, fighters)
 	end
 end)
 
@@ -747,7 +758,8 @@ Remotes.ScoresRequest:FireServer() -- get the current scores now, so the Server 
 menu = Menu.start({
 	onPlay = function(gameMode, difficulty)
 		-- Duel uses the Ready queue. Training doesn't, so the Ready button is hidden there.
-		readyButton.Visible = gameMode == "Duel"
+		duelMode = gameMode == "Duel"
+		refreshReadyVisible()
 		if gameMode ~= "Duel" then
 			setReadyLocal(false)
 		end
