@@ -98,6 +98,8 @@ local function startWeakened(character, s, now)
 		s.baseWalkSpeed = humanoid.WalkSpeed
 		humanoid.WalkSpeed = s.baseWalkSpeed * Config.WeakenedSpeedMultiplier
 	end
+	-- The client restores this speed after a free-cursor lock (Weapon.luau), so the slowdown survives it.
+	character:SetAttribute("WalkSpeedTarget", s.baseWalkSpeed * Config.WeakenedSpeedMultiplier)
 	setBladeResponsiveness(character, Config.WeaponResponsiveness * Config.WeakenedBladeResponsiveness)
 	character:SetAttribute("Weakened", true)
 	publishClash(character, s, 1, true)
@@ -111,6 +113,7 @@ local function endWeakened(character, s)
 	if humanoid then
 		humanoid.WalkSpeed = s.baseWalkSpeed
 	end
+	character:SetAttribute("WalkSpeedTarget", s.baseWalkSpeed)
 	setBladeResponsiveness(character, Config.WeaponResponsiveness)
 	character:SetAttribute("Weakened", false)
 	publishClash(character, s, 0, true)

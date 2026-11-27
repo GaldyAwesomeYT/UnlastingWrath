@@ -413,8 +413,10 @@ local function driveBlade(character, root)
 end
 
 -- While the cursor is free, the character can't walk or jump, so the body can't move away from the
--- frozen blade. The original values are saved and restored when the cursor locks again.
-local movementLocked = nil -- { humanoid = Humanoid, walkSpeed = number, jumpPower = number }
+-- frozen blade. The original values are saved and restored when the cursor locks again. The restored walk
+-- speed is the server's "WalkSpeedTarget" attribute when it has one (it changes while the player is weakened),
+-- and a server change to WalkSpeed during the lock is put back to 0.
+local movementLocked = nil -- { humanoid = Humanoid, walkSpeed = number, jumpPower = number, connection = RBXScriptConnection }
 
 local function setMovementLocked(locked)
 	local character = player.Character
@@ -423,6 +425,11 @@ local function setMovementLocked(locked)
 	if locked then
 		if humanoid and not (movementLocked and movementLocked.humanoid == humanoid) then
 			movementLocked = { humanoid = humanoid, walkSpeed = humanoid.WalkSpeed, jumpPower = humanoid.JumpPower }
+			movementLocked.connection = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+				if movementLocked and movementLocked.humanoid == humanoid and humanoid.WalkSpeed ~= 0 then
+					humanoid.WalkSpeed = 0
+				end
+			end)
 		end
 		if movementLocked then
 			movementLocked.humanoid.WalkSpeed = 0
@@ -431,8 +438,12 @@ local function setMovementLocked(locked)
 	elseif movementLocked then
 		local saved = movementLocked
 		movementLocked = nil
+		if saved.connection then
+			saved.connection:Disconnect()
+		end
 		if saved.humanoid.Parent then
-			saved.humanoid.WalkSpeed = saved.walkSpeed
+			local target = saved.humanoid.Parent:GetAttribute("WalkSpeedTarget")
+			saved.humanoid.WalkSpeed = target or saved.walkSpeed
 			saved.humanoid.JumpPower = saved.jumpPower
 		end
 	end

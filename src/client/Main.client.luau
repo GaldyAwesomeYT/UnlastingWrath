@@ -757,6 +757,8 @@ Remotes.ScoresRequest:FireServer() -- get the current scores now, so the Server 
 -- Title menu (opens right away; the loading screen covers it until the game has loaded).
 menu = Menu.start({
 	onPlay = function(gameMode, difficulty)
+		-- A fighter can't change mode mid-match (the server ignores it too), so don't let the UI drift from the server.
+		if inMatch then return end
 		-- Duel uses the Ready queue. Training doesn't, so the Ready button is hidden there.
 		duelMode = gameMode == "Duel"
 		refreshReadyVisible()
