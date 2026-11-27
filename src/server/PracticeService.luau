@@ -1,5 +1,5 @@
--- Practice mode: a button in front of each bamboo stand in the lobby (the "Stand<N>_Bamboo_Node" models in
--- Workspace.JapaneseLobby). Pressing it puts the player in practice mode at that stand: the server sets the
+-- Practice mode: a prompt in front of each bamboo stand in the lobby (the "Stand<N>_Bamboo_Node" models in
+-- Workspace.JapaneseLobby). Pressing it (a ProximityPrompt) puts the player in practice mode at that stand: the server sets the
 -- "Practicing" player attribute, which makes that player's client hide everyone else (see client Practice.luau),
 -- and moves the player in front of the bamboo log. A moving blade that touches the log cuts it (the log sways,
 -- chips fly, the player sees "CUT!"). The player leaves with the Exit Practice button on screen.
@@ -118,32 +118,13 @@ local function checkCuts()
 	end
 end
 
--- Builds the button for one stand: a small wooden drum with a red plate, standing in front of the stand
--- (toward the lobby entrance, +z). Returns the prompt.
-local function buildButton(folder, number, log, floorY)
-	local position = Vector3.new(log.Position.X, floorY, log.Position.Z + Config.PracticeButtonDistance)
-	local upright = CFrame.Angles(0, 0, math.pi / 2) -- cylinders lie along X; stand them up
-
-	local drum = Instance.new("Part")
-	drum.Name = "PracticeButton" .. number
-	drum.Shape = Enum.PartType.Cylinder
-	drum.Size = Vector3.new(1, 1.9, 1.9)
-	drum.CFrame = CFrame.new(position + Vector3.new(0, 0.5, 0)) * upright
-	drum.Anchored = true
-	drum.Material = Enum.Material.Wood
-	drum.Color = Color3.fromRGB(92, 62, 40)
-	drum.Parent = folder
-
-	local plate = Instance.new("Part")
-	plate.Name = "Plate"
-	plate.Shape = Enum.PartType.Cylinder
-	plate.Size = Vector3.new(0.2, 1.4, 1.4)
-	plate.CFrame = CFrame.new(position + Vector3.new(0, 1.1, 0)) * upright
-	plate.Anchored = true
-	plate.CanCollide = false
-	plate.Material = Enum.Material.Neon
-	plate.Color = Color3.fromRGB(200, 40, 40)
-	plate.Parent = drum
+-- The "button" is just a ProximityPrompt, no physical part: it sits on an invisible Attachment inside the
+-- stand's log, in front of the stand (toward the lobby entrance, +z) at chest height.
+local function buildPrompt(number, log, floorY)
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "PracticePromptPoint"
+	attachment.Parent = log
+	attachment.WorldPosition = Vector3.new(log.Position.X, floorY + 3, log.Position.Z + Config.PracticeButtonDistance)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ObjectText = "Bamboo Stand " .. number
@@ -152,11 +133,11 @@ local function buildButton(folder, number, log, floorY)
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = 8
 	prompt.RequiresLineOfSight = false
-	prompt.Parent = plate
+	prompt.Parent = attachment
 	return prompt
 end
 
-local function buildStand(folder, node, number)
+local function buildStand(node, number)
 	local log = node:FindFirstChildWhichIsA("BasePart", true)
 	if not log then return end
 
@@ -165,7 +146,7 @@ local function buildStand(folder, node, number)
 	local hit = workspace:Raycast(origin, Vector3.new(0, -20, 0))
 	local floorY = hit and hit.Position.Y or (log.Position.Y - log.Size.Y / 2)
 
-	local prompt = buildButton(folder, number, log, floorY)
+	local prompt = buildPrompt(number, log, floorY)
 
 	-- Where the player stands while practicing: in front of the log, facing it.
 	local standPoint = Vector3.new(log.Position.X, floorY + 3.1, log.Position.Z + Config.PracticeStandDistance)
@@ -207,13 +188,10 @@ function PracticeService.start()
 		return
 	end
 
-	local folder = Instance.new("Folder")
-	folder.Name = "PracticeButtons"
-	folder.Parent = workspace
 	for _, node in ipairs(lobby:GetChildren()) do
 		local number = string.match(node.Name, "^Stand(%d+)_Bamboo_Node$")
 		if number then
-			buildStand(folder, node, tonumber(number))
+			buildStand(node, tonumber(number))
 		end
 	end
 	table.sort(stands, function(a, b)
