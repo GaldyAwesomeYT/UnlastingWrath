@@ -16,7 +16,8 @@ local HALF = Config.WeaponLength / 2
 -- HumanoidRootPart at the sheathed pose (Config.SheathePosition / SheatheDirection), so the sheathed
 -- blade slides into it. The katana is scaled so its tip lands on the blade's tip.
 local HAND_BACK = 0.4 -- how far behind the tsuba (guard) the hand holds; the blade's base sits this far behind it
-local FLIP = CFrame.Angles(0, math.pi, 0) -- the models point their tip toward +Z; the blade's tip is -Z
+local SAYA_WIDEN = 1.4 -- the saya's cross-section is thickened by this so the blade is hidden inside it
+local FLIP =CFrame.Angles(0, math.pi, 0) -- the models point their tip toward +Z; the blade's tip is -Z
 
 local function zMax(part)
 	local cf, s = part.CFrame, part.Size
@@ -43,13 +44,14 @@ local function getLooks()
 	-- The two models were laid out side by side along X; shifting the saya's origin by that gap puts the
 	-- saya back around the blade.
 	local gap = Vector3.new(saya:GetPivot().X - sword:GetPivot().X, 0, 0)
-	looks = { sword = sword, saya = saya, origin = origin, sayaOrigin = origin + gap, scale = (Config.WeaponLength - HAND_BACK) / (tip - origin.Z) }
+	looks = { sword = sword, saya = saya, origin = origin, sayaOrigin = Vector3.new(origin.X + gap.X, saya:GetPivot().Y, origin.Z), scale = (Config.WeaponLength - HAND_BACK) / (tip - origin.Z) }
 	return looks
 end
 
 -- Clones `template` with every part scaled, flipped and placed relative to `anchor` (the tsuba's pose),
 -- welded to `attachTo`.
-local function dress(template, origin, anchor, attachTo, parent, name)
+local function dress(template, origin, anchor, attachTo, parent, name, widen)
+	widen = widen or 1
 	local info = getLooks()
 	local model = Instance.new("Model") -- a Model, so the hit code (which only reads the character's direct parts) skips it
 	model.Name = name
@@ -57,7 +59,8 @@ local function dress(template, origin, anchor, attachTo, parent, name)
 		if source:IsA("BasePart") then
 			local part = source:Clone()
 			part:ClearAllChildren()
-			part.Size = source.Size * info.scale
+			-- `widen` thickens a part across its length (the saya), so the blade sits inside it.
+			part.Size = Vector3.new(source.Size.X * widen, source.Size.Y, source.Size.Z * widen) * info.scale
 			part.CFrame = anchor * FLIP * CFrame.new((source.Position - origin) * info.scale) * source.CFrame.Rotation
 			part.Anchored = false
 			part.CanCollide = false
@@ -140,7 +143,7 @@ local function buildBlade(character, player)
 		dress(looks.sword, looks.origin, blade.CFrame * CFrame.new(0, 0, HALF - HAND_BACK), blade, character, "Katana")
 
 		local sheathed = CFrame.lookAt(Config.SheathePosition, Config.SheathePosition + Config.SheatheDirection.Unit)
-		dress(looks.saya, looks.sayaOrigin, root.CFrame * sheathed * CFrame.new(0, 0, HALF - HAND_BACK), root, character, "Saya")
+		dress(looks.saya, looks.sayaOrigin, root.CFrame * sheathed * CFrame.new(0, 0, HALF - HAND_BACK), root, character, "Saya", SAYA_WIDEN)
 	end
 end
 
