@@ -13,6 +13,7 @@ local LockedCamera = require(script.Parent.LockedCamera)
 local LockOn = require(script.Parent.LockOn)
 local Controls = require(script.Parent.Controls)
 local Leaderboard = require(script.Parent.Leaderboard)
+local HealthBars = require(script.Parent.HealthBars)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -530,6 +531,7 @@ Remotes.MatchStart.OnClientEvent:Connect(function(fighters)
 			break
 		end
 	end
+	HealthBars.setInMatch(inMatch)
 	refreshReadyVisible()
 	if inMatch then
 		task.spawn(playDuelIntro, fighters)
@@ -750,6 +752,7 @@ end)
 Weapon.start(function()
 	return (menu ~= nil and menu.isOpen()) or leaderboard.isOpen()
 end)
+HealthBars.start()
 LockedCamera.start(function()
 	return facingTarget ~= nil -- the duel intro moves the camera itself
 end, Weapon.getLook, Weapon.isDefaultMode)

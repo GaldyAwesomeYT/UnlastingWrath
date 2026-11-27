@@ -80,6 +80,11 @@ local Config = {
 	KillCredit = 6,               -- a kill counts if the victim was hit by the killer this recently
 	KillResetCountdown = 3,       -- after each kill: combat pauses this many seconds, then everyone is healed to full
 
+	-- Head health bars (over other players and dummies, hidden while you are in a duel)
+	HealthBarMaxVisible = 10,     -- at most this many bars at once; with more on screen, only the closest are shown (culling)
+	HealthBarMaxDistance = 80,    -- studs; farther characters get no bar
+	HealthBarRefreshTime = 0.1,   -- seconds between bar updates
+
 	-- PvE training dummy
 	DummyHealth = 100,
 	DummyAggroRange = 6,          -- studs; a dummy swings its sword when a player is this close (the sword reaches about 4 studs)
