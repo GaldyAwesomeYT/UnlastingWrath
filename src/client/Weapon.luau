@@ -264,9 +264,16 @@ local function poseArm(character, side, target, look)
 	end
 
 	-- Arm orientation, then slide its center so the joint point lands exactly on the shoulder.
-	local rotation = segmentCFrame(Vector3.zero, travel, look)
+	-- Roll the arm so its width axis stays horizontal (along the body's right), like the original R6 arm,
+	-- so the shoulder end stays flush against the torso instead of tilting away from it.
+	local right = look:Cross(Vector3.yAxis)
+	local hint = (-travel):Cross(right)
+	if hint.Magnitude < 1e-3 then
+		hint = look
+	end
+	local rotation = segmentCFrame(Vector3.zero, travel, hint)
 	local center = shoulder - rotation:VectorToWorldSpace(c1.Position)
-	placeMotor(joint, center, travel, look)
+	placeMotor(joint, center, travel, hint)
 	return shoulder + travel * (len - JOINT_DROP)
 end
 
