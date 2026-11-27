@@ -4,11 +4,72 @@
 -- replicated blade for hits and clashes (CombatService).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 
 local BladeService = {}
 
 local HALF = Config.WeaponLength / 2
+
+-- Looks: the physical "Blade" and "Grip" parts stay as invisible hit/physics parts, and the katana
+-- (ServerStorage.Weapons.Katana_Sword) is welded onto them. The saya (Katana_Saya) is welded to the
+-- HumanoidRootPart at the sheathed pose (Config.SheathePosition / SheatheDirection), so the sheathed
+-- blade slides into it. The katana is scaled so its tip lands on the blade's tip.
+local HAND_BACK = 0.4 -- how far behind the tsuba (guard) the hand holds; the blade's base sits this far behind it
+local FLIP = CFrame.Angles(0, math.pi, 0) -- the models point their tip toward +Z; the blade's tip is -Z
+
+local function zMax(part)
+	local cf, s = part.CFrame, part.Size
+	return part.Position.Z + (math.abs(cf.RightVector.Z) * s.X + math.abs(cf.UpVector.Z) * s.Y + math.abs(cf.LookVector.Z) * s.Z) / 2
+end
+
+local looks = nil -- { sword, saya, origin, scale }, worked out once from the templates
+local function getLooks()
+	if looks then return looks end
+	local folder = ServerStorage:FindFirstChild("Weapons")
+	local sword = folder and folder:FindFirstChild("Katana_Sword")
+	local saya = folder and folder:FindFirstChild("Katana_Saya")
+	local tsuba = sword and sword:FindFirstChild("Tsuba", true)
+	if not (sword and saya and tsuba) then
+		warn("BladeService: ServerStorage.Weapons.Katana_Sword / Katana_Saya (with a Tsuba part) not found; using the plain blade.")
+		looks = { missing = true }
+		return looks
+	end
+	local tip = -math.huge
+	for _, part in ipairs(sword:GetDescendants()) do
+		if part:IsA("BasePart") then tip = math.max(tip, zMax(part)) end
+	end
+	local origin = tsuba.Position
+	looks = { sword = sword, saya = saya, origin = origin, scale = (Config.WeaponLength - HAND_BACK) / (tip - origin.Z) }
+	return looks
+end
+
+-- Clones `template` with every part scaled, flipped and placed relative to `anchor` (the tsuba's pose),
+-- welded to `attachTo`.
+local function dress(template, anchor, attachTo, parent, name)
+	local info = getLooks()
+	local model = Instance.new("Model") -- a Model, so the hit code (which only reads the character's direct parts) skips it
+	model.Name = name
+	for _, source in ipairs(template:GetDescendants()) do
+		if source:IsA("BasePart") then
+			local part = source:Clone()
+			part:ClearAllChildren()
+			part.Size = source.Size * info.scale
+			part.CFrame = anchor * FLIP * CFrame.new((source.Position - info.origin) * info.scale) * source.CFrame.Rotation
+			part.Anchored = false
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.Massless = true
+			part.Parent = model
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = attachTo
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
+	model.Parent = parent
+end
 
 local function buildBlade(character, player)
 	local root = character:WaitForChild("HumanoidRootPart", 5)
@@ -68,6 +129,16 @@ local function buildBlade(character, player)
 	orientation.Parent = blade
 
 	blade:SetNetworkOwner(player)
+
+	-- The katana and saya (see getLooks). The blade and grip become invisible hit parts.
+	if not getLooks().missing then
+		blade.Transparency = 1
+		handle.Transparency = 1
+		dress(looks.sword, blade.CFrame * CFrame.new(0, 0, HALF - HAND_BACK), blade, character, "Katana")
+
+		local sheathed = CFrame.lookAt(Config.SheathePosition, Config.SheathePosition + Config.SheatheDirection.Unit)
+		dress(looks.saya, root.CFrame * sheathed * CFrame.new(0, 0, HALF - HAND_BACK), root, character, "Saya")
+	end
 end
 
 -- Gives every player a blade on each character, including the one they already have.
