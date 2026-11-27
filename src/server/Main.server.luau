@@ -48,6 +48,7 @@ CombatService.spawnDummy(Vector3.new(15, 4, -48), { -- inside the dojo lobby (ta
 	windup = Config.DummyWindup,
 }, "Dummy")
 GameService.start()
+task.spawn(require(script.Parent.PracticeService).start)
 require(script.Parent.BladeService).start()
 require(script.Parent.KeybindService).start()
 require(script.Parent.LeaderboardService).start()

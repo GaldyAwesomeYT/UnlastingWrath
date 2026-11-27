@@ -14,6 +14,7 @@ local LockOn = require(script.Parent.LockOn)
 local Controls = require(script.Parent.Controls)
 local Leaderboard = require(script.Parent.Leaderboard)
 local HealthBars = require(script.Parent.HealthBars)
+local Practice = require(script.Parent.Practice)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -90,6 +91,7 @@ local FEEDBACK = {
 	Blocked = { text = "BLOCK", color = Color3.fromRGB(200, 200, 200) },
 	Clash = { text = "CLASH!", color = Color3.fromRGB(255, 170, 60) },
 	Weakened = { text = "WEAKENED", color = Color3.fromRGB(190, 110, 255) },
+	Cut = { text = "CUT!", color = Color3.fromRGB(150, 230, 110) },
 }
 
 -- Parry effects: a green screen flash and an optional sound on the defender's screen.
@@ -396,10 +398,11 @@ readyButton.BorderSizePixel = 0
 readyButton.Parent = gui
 readyButton.Visible = false -- shown after Play in Duel mode (see the title menu's onPlay below)
 
--- The button shows in Duel mode, except while this player is fighting in a match.
+-- The button shows in Duel mode, except while this player is fighting in a match or practicing.
 local duelMode, inMatch = false, false
+local practicing = false -- in practice mode at a bamboo stand (see Practice.luau)
 local function refreshReadyVisible()
-	readyButton.Visible = duelMode and not inMatch
+	readyButton.Visible = duelMode and not inMatch and not practicing
 end
 
 local isReady = false
@@ -568,7 +571,7 @@ RunService.RenderStepped:Connect(function(dt)
 	-- Blade sheathed: normal Roblox camera and movement. With a lock-on target the body keeps facing it (so a
 	-- quick draw slashes toward the opponent); without one, the body turns toward where it walks.
 	if Weapon.isDefaultMode() then
-		local sheathedLock = LockOn.update(root, true)
+		local sheathedLock = LockOn.update(root, not practicing)
 		if sheathedLock then
 			humanoid.AutoRotate = false
 			local toTarget = sheathedLock.Position - root.Position
@@ -586,7 +589,7 @@ RunService.RenderStepped:Connect(function(dt)
 
 	-- Lock-on: the body faces the opponent, so A and D strafe around them and the camera stays on them.
 	-- While looking around (right mouse) or with the cursor free, the body holds still.
-	local lockedRoot = LockOn.update(root, true)
+	local lockedRoot = LockOn.update(root, not practicing) -- no lock-on in practice mode: the body stays facing the log
 	Weapon.setLockedOn(lockedRoot ~= nil)
 	if lockedRoot then
 		humanoid.AutoRotate = false
@@ -769,17 +772,30 @@ end)
 Remotes.Scores.OnClientEvent:Connect(leaderboard.setServerScores)
 Remotes.ScoresRequest:FireServer() -- get the current scores now, so the Server board isn't empty before the first match
 
+-- Practice mode (the button in front of a bamboo stand): others are hidden, the exit button shows, and the
+-- blade is drawn so it can cut.
+Practice.start({
+	onChanged = function(active)
+		practicing = active
+		HealthBars.setPractice(active)
+		refreshReadyVisible()
+		if active then
+			setReadyLocal(false)
+			if Weapon.isSheathed() then
+				Weapon.toggleSheathe()
+			end
+		end
+	end,
+})
+
 -- Title menu (opens right away; the loading screen covers it until the game has loaded).
 menu = Menu.start({
 	onPlay = function(gameMode, difficulty)
 		-- A fighter can't change mode mid-match (the server ignores it too), so don't let the UI drift from the server.
 		if inMatch then return end
-		-- Duel uses the Ready queue. Training doesn't, so the Ready button is hidden there.
+		-- Play means Duel: the Ready button shows (unless practicing) and the server drops any old training session.
 		duelMode = gameMode == "Duel"
 		refreshReadyVisible()
-		if gameMode ~= "Duel" then
-			setReadyLocal(false)
-		end
 		Remotes.Options:FireServer(gameMode, difficulty)
 	end,
 })

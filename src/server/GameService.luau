@@ -40,11 +40,11 @@ local function broadcastScores()
 	Remotes.Scores:FireAllClients(scoreList())
 end
 
--- Players who are ready and still in the server, in join order.
+-- Players who are ready and still in the server, in join order. Someone practicing never counts.
 local function readyPlayers()
 	local list = {}
 	for _, player in ipairs(Players:GetPlayers()) do
-		if ready[player] then
+		if ready[player] and not player:GetAttribute("Practicing") then
 			table.insert(list, player)
 		end
 	end
@@ -72,7 +72,7 @@ end
 local function pickFighters()
 	local picked = {}
 	for _, player in ipairs(Players:GetPlayers()) do
-		if ready[player] and #picked < Config.MatchSize then
+		if ready[player] and not player:GetAttribute("Practicing") and #picked < Config.MatchSize then
 			table.insert(picked, player)
 		end
 	end
@@ -167,6 +167,13 @@ local function watchCharacter(player, character)
 end
 
 local function bindPlayer(player)
+	-- Starting practice mode takes the player out of the Ready queue.
+	player:GetAttributeChangedSignal("Practicing"):Connect(function()
+		if player:GetAttribute("Practicing") then
+			ready[player] = nil
+			Remotes.ReadyState:FireClient(player, false)
+		end
+	end)
 	player.CharacterAdded:Connect(function(character)
 		watchCharacter(player, character)
 	end)
@@ -197,7 +204,7 @@ end
 
 -- Ready button: toggles a player's queue status. Ignored while a match is running or in training.
 local function setReady(player, wantReady)
-	if RoundState.active or TrainingService.isTraining(player) then
+	if RoundState.active or TrainingService.isTraining(player) or player:GetAttribute("Practicing") then
 		Remotes.ReadyState:FireClient(player, false)
 		return
 	end

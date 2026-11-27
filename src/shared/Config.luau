@@ -97,6 +97,12 @@ local Config = {
 	DummyRecoverTime = 0.4,       -- seconds the dummy takes to lower its sword after a swing
 	DummyReviveTime = 3,          -- seconds a killed dummy waits before it is healed back to full
 
+	-- Practice mode (the buttons in front of the lobby's bamboo stands)
+	PracticeButtonDistance = 6,   -- studs in front of a stand's log (toward the lobby entrance) where its button sits
+	PracticeStandDistance = 3.2,  -- studs in front of the log where a practicing player stands (the stand's base is 1.8 studs wide each side)
+	PracticeCutCooldown = 0.35,   -- seconds before the same log can be cut again
+	PracticeSwayDegrees = 9,      -- how far a cut log leans before settling back
+
 	-- Game modes and training difficulty (picked on the title menu)
 	GameModes = { "Duel", "Training" }, -- Duel: 1v1 ready-up queue. Training: you vs your own dummy.
 	DefaultGameMode = "Duel",

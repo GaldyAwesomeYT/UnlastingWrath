@@ -11,6 +11,7 @@ local HealthBars = {}
 
 local player = Players.LocalPlayer
 local inMatch = false
+local practicing = false
 local bars = {} -- [character Model] = { gui, fill, name, text }
 
 local function makeBar(character)
@@ -89,7 +90,7 @@ end
 local function refresh()
 	local camera = workspace.CurrentCamera
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if inMatch or not camera or not root then
+	if inMatch or practicing or not camera or not root then
 		for _, bar in pairs(bars) do
 			bar.gui.Enabled = false
 		end
@@ -157,6 +158,11 @@ end
 -- True while the local player is a fighter in a duel: the head bars are hidden then.
 function HealthBars.setInMatch(value)
 	inMatch = value == true
+end
+
+-- True while the local player is in practice mode: every head bar and name is hidden then.
+function HealthBars.setPractice(value)
+	practicing = value == true
 end
 
 function HealthBars.start()

@@ -2,7 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block", "Options", "Sheathe", "ScoresRequest", "QuickDraw", "Keybinds", "Leaderboard" }
+local NAMES = { "Feedback", "Round", "Scores", "Dash", "Ready", "ReadyState", "MatchStart", "Block", "Options", "Sheathe", "ScoresRequest", "QuickDraw", "Keybinds", "Leaderboard", "PracticeExit" }
 local folder
 
 if RunService:IsServer() then
@@ -32,5 +32,6 @@ return {
 	Keybinds = folder:WaitForChild("Keybinds"), -- client -> server: no args to load, or a { [moveId] = binding } table to save; server -> client: the saved table
 	QuickDraw = folder:WaitForChild("QuickDraw"), -- client -> server: "Right", "Up" or "Down"; a slash straight out of the sheath (only valid while sheathed)
 	Sheathe = folder:WaitForChild("Sheathe"), -- client -> server: boolean, true while the blade is sheathed (no hits, clashes or guard)
+	PracticeExit = folder:WaitForChild("PracticeExit"), -- client -> server: no args; leaves practice mode (the server sets/clears the player's "Practicing" attribute)
 	Options = folder:WaitForChild("Options"),  -- client -> server: (gameMode string, difficulty string), sent when Play is pressed
 }

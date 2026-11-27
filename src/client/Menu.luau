@@ -114,30 +114,7 @@ function Menu.start(callbacks)
 	local playButton = makeButton("PLAY", 3, mainPanel, PLAY_COLOR)
 	local settingsButton = makeButton("SETTINGS", 4, mainPanel)
 	local controlsButton = makeButton("CONTROLS", 5, mainPanel)
-	local modeButton = makeButton("", 6, mainPanel)
-	local difficultyButton = makeButton("", 7, mainPanel)
-	local hint = makeLabel("", 8, mainPanel, Enum.Font.Gotham, 14, MUTED)
-
-	local modeIndex = table.find(Config.GameModes, Config.DefaultGameMode) or 1
-	local difficultyIndex = table.find(Config.DifficultyNames, Config.DefaultDifficulty) or 1
-
-	local function selectedMode()
-		return Config.GameModes[modeIndex]
-	end
-
-	local function selectedDifficulty()
-		return Config.DifficultyNames[difficultyIndex]
-	end
-
-	local function refreshMain()
-		modeButton.Text = "Mode: " .. selectedMode()
-		difficultyButton.Text = "Difficulty: " .. selectedDifficulty()
-		if selectedMode() == "Duel" then
-			hint.Text = "Duel: press Ready in the game to queue for a 1v1 match. Difficulty doesn't apply."
-		else
-			hint.Text = "Training: fight your own dummy. Difficulty sets how tough it is."
-		end
-	end
+	makeLabel("Duel: press Ready in the game to queue for a 1v1 match. Practice: press E at a button in front of a bamboo stand in the lobby.", 6, mainPanel, Enum.Font.Gotham, 14, MUTED)
 
 	-- Settings page: how to play (information only). The key names follow the player's own bindings.
 	makeLabel("Settings", 1, settingsPanel, Enum.Font.GothamBlack, 28, ACCENT)
@@ -276,7 +253,6 @@ function Menu.start(callbacks)
 	end
 
 	local function open()
-		refreshMain()
 		showPage("main")
 		screen.Enabled = true
 	end
@@ -286,17 +262,9 @@ function Menu.start(callbacks)
 		screen.Enabled = false
 	end
 
-	modeButton.Activated:Connect(function()
-		modeIndex = modeIndex % #Config.GameModes + 1
-		refreshMain()
-	end)
-	difficultyButton.Activated:Connect(function()
-		difficultyIndex = difficultyIndex % #Config.DifficultyNames + 1
-		refreshMain()
-	end)
 	playButton.Activated:Connect(function()
 		close()
-		callbacks.onPlay(selectedMode(), selectedDifficulty())
+		callbacks.onPlay(Config.DefaultGameMode, Config.DefaultDifficulty)
 	end)
 	settingsButton.Activated:Connect(function()
 		showPage("settings")

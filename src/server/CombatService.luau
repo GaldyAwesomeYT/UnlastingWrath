@@ -661,6 +661,14 @@ function CombatService.spawnDummy(position, stats, name)
 	return model
 end
 
+-- This character's blade as of the last heartbeat: base, tip and tip speed (studs/second relative to the
+-- body). Returns nil when there is no blade to swing (none yet, dead, or sheathed). Used by practice mode.
+function CombatService.getBlade(character)
+	local s = states[character]
+	if not (s and s.seg) or s.sheathed then return nil end
+	return s.seg.base, s.seg.tip, s.speed
+end
+
 -- Returns { player = Player, time = number } for the last player who hit this character.
 function CombatService.getLastAttacker(character)
 	return lastHits[character]
