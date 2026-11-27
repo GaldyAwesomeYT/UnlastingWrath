@@ -46,6 +46,7 @@ local sheatheBlend = 0
 local slash = nil
 local swing = Vector2.zero
 local swingArmed = false
+local swingStart = nil -- cursor position when the swing began (see updateQuickDraw)
 
 -- Virtual cursor: an offset in pixels from the screen center, kept inside a circle.
 local aimOffset = Vector2.zero
@@ -478,19 +479,31 @@ local function updateQuickDraw(dt)
 		and Controls.isDown("QuickDraw")
 	if not swingArmed then
 		swing = Vector2.zero
+		swingStart = nil
 		return
 	end
 
-	if swing.Magnitude < Config.QuickDrawThreshold then return end
+	-- The swing is the larger of two measures: the summed movement deltas, and how far the cursor has moved
+	-- since the button went down (works even if move events carry no delta).
+	local mouse = UserInputService:GetMouseLocation()
+	swingStart = swingStart or mouse
+	local moved = mouse - swingStart
+	local total = swing
+	if moved.Magnitude > swing.Magnitude then
+		total = moved
+	end
+
+	if total.Magnitude < Config.QuickDrawThreshold then return end
 	local direction = nil
-	if math.abs(swing.X) >= math.abs(swing.Y) then
-		if swing.X > 0 then
+	if math.abs(total.X) >= math.abs(total.Y) then
+		if total.X > 0 then
 			direction = "Right"
 		end
 	else
-		direction = swing.Y < 0 and "Up" or "Down" -- screen Y grows downward
+		direction = total.Y < 0 and "Up" or "Down" -- screen Y grows downward
 	end
 	swing = Vector2.zero
+	swingStart = mouse
 	if direction then
 		startQuickDraw(direction)
 	end

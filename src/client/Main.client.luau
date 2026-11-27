@@ -563,10 +563,22 @@ RunService.RenderStepped:Connect(function(dt)
 		return
 	end
 
-	-- Blade sheathed: normal Roblox movement, the body turns toward where it walks.
+	-- Blade sheathed: normal Roblox camera and movement. With a lock-on target the body keeps facing it (so a
+	-- quick draw slashes toward the opponent); without one, the body turns toward where it walks.
 	if Weapon.isDefaultMode() then
-		LockOn.update(root, false)
-		humanoid.AutoRotate = true
+		local sheathedLock = LockOn.update(root, true)
+		if sheathedLock then
+			humanoid.AutoRotate = false
+			local toTarget = sheathedLock.Position - root.Position
+			toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
+			if toTarget.Magnitude > 0.5 and not Weapon.isFree() then
+				local goal = CFrame.lookAt(root.Position, root.Position + toTarget)
+				local alpha = math.min(1, dt * Config.LockOnTurnSpeed)
+				root.CFrame = root.CFrame.Rotation:Lerp(goal.Rotation, alpha) + root.Position
+			end
+		else
+			humanoid.AutoRotate = true
+		end
 		return
 	end
 
