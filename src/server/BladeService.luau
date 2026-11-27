@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage.Shared.Config)
 
 local BladeService = {}
@@ -16,7 +17,7 @@ local HALF = Config.WeaponLength / 2
 -- HumanoidRootPart at the sheathed pose (Config.SheathePosition / SheatheDirection), so the sheathed
 -- blade slides into it. The katana is scaled so its tip lands on the blade's tip.
 local HAND_BACK = 0.4 -- how far behind the tsuba (guard) the hand holds; the blade's base sits this far behind it
-local SAYA_WIDEN = 1.4 -- the saya's cross-section is thickened by this so the blade is hidden inside it
+local SAYA_WIDEN = 1 -- scale of the saya's cross-section (the blade is faded out while sheathed instead of hidden by a fat saya)
 local FLIP =CFrame.Angles(0, math.pi, 0) -- the models point their tip toward +Z; the blade's tip is -Z
 
 local function zMax(part)
@@ -46,6 +47,30 @@ local function getLooks()
 	local gap = Vector3.new(saya:GetPivot().X - sword:GetPivot().X, 0, 0)
 	looks = { sword = sword, saya = saya, origin = origin, sayaOrigin = Vector3.new(origin.X + gap.X, saya:GetPivot().Y, origin.Z), scale = (Config.WeaponLength - HAND_BACK) / (tip - origin.Z) }
 	return looks
+end
+
+-- Fades the katana's blade (the parts named Blade_*) out as it slides into the saya and back in when it is
+-- drawn, so the blade never shows through the scabbard. Parts' Transparency replicates to everyone.
+local fadeTweens = setmetatable({}, { __mode = "k" })
+function BladeService.setBladeHidden(character, hidden)
+	local katana = character and character:FindFirstChild("Katana")
+	if not katana then return end
+	for _, tween in ipairs(fadeTweens[character] or {}) do
+		tween:Cancel()
+	end
+	local tweens = {}
+	fadeTweens[character] = tweens
+	-- Sheathing: the blade only enters the saya in the second half of the travel. Drawing: it shows at once.
+	local info = hidden
+		and TweenInfo.new(Config.SheatheTime * 0.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, Config.SheatheTime * 0.5)
+		or TweenInfo.new(0.05, Enum.EasingStyle.Linear)
+	for _, part in ipairs(katana:GetChildren()) do
+		if part:IsA("BasePart") and string.sub(part.Name, 1, 6) == "Blade_" then
+			local tween = TweenService:Create(part, info, { Transparency = hidden and 1 or 0 })
+			table.insert(tweens, tween)
+			tween:Play()
+		end
+	end
 end
 
 -- Clones `template` with every part scaled, flipped and placed relative to `anchor` (the tsuba's pose),

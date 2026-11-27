@@ -15,6 +15,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local RoundState = require(script.Parent.RoundState)
+local BladeService = require(script.Parent.BladeService)
 
 local CombatService = {}
 
@@ -420,6 +421,7 @@ Remotes.QuickDraw.OnServerEvent:Connect(function(player, direction)
 	local now = os.clock()
 	if not s.sheathed or RoundState.paused or now < s.stunnedUntil then return end
 	s.sheathed = false
+	BladeService.setBladeHidden(character, false)
 	s.quickDrawUntil = now + Config.QuickDrawBonusTime
 end)
 
@@ -439,6 +441,7 @@ Remotes.Sheathe.OnServerEvent:Connect(function(player, sheathed)
 	if not character then return end
 	local s = getState(character)
 	s.sheathed = (sheathed == true)
+	BladeService.setBladeHidden(character, s.sheathed)
 	if s.sheathed then
 		s.guarding = false
 	end
