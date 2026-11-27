@@ -32,7 +32,7 @@ local Config = {
 	},
 	SheatheKey = "X",             -- press to sheathe the blade on the left hip; press again to draw it (Enum.KeyCode name)
 	SheatheTime = 0.35,           -- seconds the blade takes to travel between the hip and the ready pose
-	SheathePosition = Vector3.new(-1.1, -0.7, 0.2), -- where the sheathed blade's center sits, in the HumanoidRootPart's space (left hip)
+	SheathePosition = Vector3.new(-2.2, -0.7, 0.2), -- where the sheathed blade's center sits, in the HumanoidRootPart's space (left hip; x = -2.2 keeps the saya outside the hanging arm, which reaches x = -2)
 	SheatheDirection = Vector3.new(0, -0.6, 1),     -- which way the sheathed blade points, in the same space (tip down and back)
 	LockOnKey = "Q",              -- toggles lock-on (Enum.KeyCode name). Locked on, the body always faces the opponent and A/D strafe
 	LockOnRange = 80,             -- studs; outside a match, the nearest training dummy within this range is locked
