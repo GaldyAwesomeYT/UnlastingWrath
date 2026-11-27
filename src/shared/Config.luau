@@ -31,7 +31,11 @@ local Config = {
 		Limb = 0.5,
 	},
 	SheatheKey = "X",             -- press to sheathe the blade on the left hip; press again to draw it (Enum.KeyCode name)
-	SheatheTime = 0.35,           -- seconds the blade takes to travel between the hip and the ready pose
+	SheatheTime = 0.8,            -- seconds the draw / sheathe animation takes (hip <-> ready pose)
+	DrawPullDistance = 1.4,       -- studs the right hand pulls the katana straight out of the saya before the overhead arc starts
+	DrawSayaGrip = 0.8,           -- studs from the hilt along the saya where the left hand holds it while drawing
+	DrawOverheadPoint = Vector3.new(-0.3, 3.2, -0.3), -- the highest point of the right hand's arc, in the HumanoidRootPart's space (above the head)
+	DrawArmStretch = 2.2,         -- arms may stretch this far (instead of ArmMaxStretch) during the draw / sheathe, to reach the hip and the overhead point
 	SheathePosition = Vector3.new(-2.2, -0.7, 0.2), -- where the sheathed blade's center sits, in the HumanoidRootPart's space (left hip; x = -2.2 keeps the saya outside the hanging arm, which reaches x = -2)
 	SheatheDirection = Vector3.new(0, -0.6, 1),     -- which way the sheathed blade points, in the same space (tip down and back)
 	LockOnKey = "Q",              -- toggles lock-on (Enum.KeyCode name). Locked on, the body always faces the opponent and A/D strafe

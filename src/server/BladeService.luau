@@ -49,10 +49,15 @@ local function getLooks()
 	return looks
 end
 
--- Fades the katana's blade (the parts named Blade_*) out as it slides into the saya and back in when it is
--- drawn, so the blade never shows through the scabbard. Parts' Transparency replicates to everyone.
+-- Fades the katana's blade (the parts named Blade_*) in as it comes out of the saya and out as it slides back
+-- in, so the blade never shows through the scabbard. Parts' Transparency replicates to everyone.
+-- The timings are fractions of Config.SheatheTime { start, end }, matching the draw animation (Weapon.luau):
+-- the base half of the blade comes out during the straight pull, the tip half when the overhead arc starts.
+-- Sheathing is the same run backwards.
+local FADE_DRAW = { Blade_Lower = { 0.15, 0.4 }, Blade_Upper = { 0.38, 0.48 } }
+local FADE_SHEATHE = { Blade_Upper = { 0.52, 0.62 }, Blade_Lower = { 0.6, 0.85 } }
 local fadeTweens = setmetatable({}, { __mode = "k" })
-function BladeService.setBladeHidden(character, hidden)
+function BladeService.setBladeHidden(character, hidden, instant)
 	local katana = character and character:FindFirstChild("Katana")
 	if not katana then return end
 	for _, tween in ipairs(fadeTweens[character] or {}) do
@@ -60,15 +65,20 @@ function BladeService.setBladeHidden(character, hidden)
 	end
 	local tweens = {}
 	fadeTweens[character] = tweens
-	-- Sheathing: the blade only enters the saya in the second half of the travel. Drawing: it shows at once.
-	local info = hidden
-		and TweenInfo.new(Config.SheatheTime * 0.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, Config.SheatheTime * 0.5)
-		or TweenInfo.new(0.05, Enum.EasingStyle.Linear)
+	local timings = hidden and FADE_SHEATHE or FADE_DRAW
 	for _, part in ipairs(katana:GetChildren()) do
 		if part:IsA("BasePart") and string.sub(part.Name, 1, 6) == "Blade_" then
-			local tween = TweenService:Create(part, info, { Transparency = hidden and 1 or 0 })
-			table.insert(tweens, tween)
-			tween:Play()
+			local goal = { Transparency = hidden and 1 or 0 }
+			local window = timings[part.Name] or { 0, 1 }
+			if instant then
+				part.Transparency = goal.Transparency -- quick draw: the blade is out at once
+			else
+				local T = Config.SheatheTime
+				local info = TweenInfo.new((window[2] - window[1]) * T, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, window[1] * T)
+				local tween = TweenService:Create(part, info, goal)
+				table.insert(tweens, tween)
+				tween:Play()
+			end
 		end
 	end
 end

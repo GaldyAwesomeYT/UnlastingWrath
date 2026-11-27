@@ -421,7 +421,7 @@ Remotes.QuickDraw.OnServerEvent:Connect(function(player, direction)
 	local now = os.clock()
 	if not s.sheathed or RoundState.paused or now < s.stunnedUntil then return end
 	s.sheathed = false
-	BladeService.setBladeHidden(character, false)
+	BladeService.setBladeHidden(character, false, true)
 	s.quickDrawUntil = now + Config.QuickDrawBonusTime
 end)
 
@@ -440,8 +440,11 @@ Remotes.Sheathe.OnServerEvent:Connect(function(player, sheathed)
 	local character = player.Character
 	if not character then return end
 	local s = getState(character)
+	local changed = s.sheathed ~= (sheathed == true)
 	s.sheathed = (sheathed == true)
-	BladeService.setBladeHidden(character, s.sheathed)
+	if changed then -- (a quick draw has already drawn the blade at once)
+		BladeService.setBladeHidden(character, s.sheathed)
+	end
 	if s.sheathed then
 		s.guarding = false
 	end
