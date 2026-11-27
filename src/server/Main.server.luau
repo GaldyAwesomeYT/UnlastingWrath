@@ -42,7 +42,7 @@ if not Workspace:FindFirstChild("ArenaMarkings") then
 end
 
 -- Shared arena dummy (always available, any mode). Training players get their own dummies.
-CombatService.spawnDummy(Vector3.new(0, 3, -20), {
+CombatService.spawnDummy(Vector3.new(15, 4, -48), { -- inside the dojo lobby (tatami floor top is y~1.8)
 	health = Config.DummyHealth,
 	attackInterval = Config.DummyAttackInterval,
 	windup = Config.DummyWindup,
