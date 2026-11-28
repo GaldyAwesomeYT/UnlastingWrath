@@ -799,6 +799,18 @@ local function poseHands()
 			end
 			setDefaultAnimation(character, true)
 		end
+		-- Self-heal: whatever happened, a fully sheathed character always has its shoulder motors on and the
+		-- default animation running, so the arms can never stay stuck in the draw pose.
+		local torso = character:FindFirstChild("Torso")
+		local shoulder = torso and torso:FindFirstChild("Right Shoulder")
+		local otherShoulder = torso and torso:FindFirstChild("Left Shoulder")
+		if (shoulder and not shoulder.Enabled) or (otherShoulder and not otherShoulder.Enabled) then
+			releaseArms(character)
+		end
+		local animate = character:FindFirstChild("Animate")
+		if animate and animate:IsA("LocalScript") and animate.Disabled then
+			animate.Disabled = false
+		end
 		return
 	end
 	-- Blade being drawn: the blade is chased by its constraints again.
