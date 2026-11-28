@@ -323,10 +323,9 @@ local function updateCursor(dt)
 	else
 		aimOffset += Vector2.new(delta.X, delta.Y) * Config.AimSensitivity
 
-		-- Pushing the cursor past the circle turns the player that way: sideways turns the body (and so the
-		-- camera), up or down tilts the camera, easing back to level when the push stops.
-		-- Locked on, the body and camera stay on the target, so the push turns nothing.
-		local pushedVertically = false
+		-- Pushing the cursor past the circle turns the body sideways (and so the camera). The vertical axis is
+		-- locked: pushing up or down past the edge tilts nothing, and the camera only tilts with the look button
+		-- (right mouse, above). Locked on, the body and camera stay on the target, so the push turns nothing.
 		if aimOffset.Magnitude > aimRadius then
 			local clamped = aimOffset.Unit * aimRadius
 			local excess = aimOffset - clamped
@@ -336,15 +335,6 @@ local function updateCursor(dt)
 			end
 			local limit = Config.EdgeTurnMaxPixels
 			pendingTurn += math.clamp(excess.X, -limit, limit) * Config.EdgeTurnSensitivity
-			if math.abs(excess.Y) > 0.5 then
-				pushedVertically = true
-				local pitchLimit = math.rad(Config.EdgePitchLimit)
-				edgePitch = math.clamp(edgePitch - math.clamp(excess.Y, -limit, limit) * Config.EdgeTurnSensitivity, -pitchLimit, pitchLimit)
-			end
-		end
-		if not pushedVertically and edgePitch ~= 0 then
-			local back = Config.EdgePitchReturn * dt
-			edgePitch = math.sign(edgePitch) * math.max(math.abs(edgePitch) - back, 0)
 		end
 	end
 
