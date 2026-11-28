@@ -52,10 +52,10 @@ end
 -- Fades the katana's blade (the parts named Blade_*) in as it comes out of the saya and out as it slides back
 -- in, so the blade never shows through the scabbard. Parts' Transparency replicates to everyone.
 -- The timings are fractions of Config.SheatheTime { start, end }, matching the draw animation (Weapon.luau):
--- the base half of the blade comes out during the straight pull, the tip half when the overhead arc starts.
+-- the base half of the blade shows as it is pulled out overhead, the tip half as it clears the saya.
 -- Sheathing is the same run backwards.
-local FADE_DRAW = { Blade_Lower = { 0.15, 0.4 }, Blade_Upper = { 0.38, 0.48 } }
-local FADE_SHEATHE = { Blade_Upper = { 0.52, 0.62 }, Blade_Lower = { 0.6, 0.85 } }
+local FADE_DRAW = { Blade_Lower = { 0.4, 0.52 }, Blade_Upper = { 0.52, 0.65 } }
+local FADE_SHEATHE = { Blade_Upper = { 0.35, 0.48 }, Blade_Lower = { 0.48, 0.6 } }
 local fadeTweens = setmetatable({}, { __mode = "k" })
 function BladeService.setBladeHidden(character, hidden, instant)
 	local katana = character and character:FindFirstChild("Katana")
@@ -85,10 +85,10 @@ end
 
 -- Clones `template` with every part scaled, flipped and placed relative to `anchor` (the tsuba's pose),
 -- welded to `attachTo`.
-local function dress(template, origin, anchor, attachTo, parent, name, widen)
+local function dress(template, origin, anchor, attachTo, parent, name, widen, existing)
 	widen = widen or 1
 	local info = getLooks()
-	local model = Instance.new("Model") -- a Model, so the hit code (which only reads the character's direct parts) skips it
+	local model = existing or Instance.new("Model") -- a Model, so the hit code (which only reads the character's direct parts) skips it
 	model.Name = name
 	for _, source in ipairs(template:GetDescendants()) do
 		if source:IsA("BasePart") then
@@ -177,8 +177,44 @@ local function buildBlade(character, player)
 		handle.Transparency = 1
 		dress(looks.sword, looks.origin, blade.CFrame * CFrame.new(0, 0, HALF - HAND_BACK), blade, character, "Katana")
 
-		local sheathed = CFrame.lookAt(Config.SheathePosition, Config.SheathePosition + Config.SheatheDirection.Unit)
-		dress(looks.saya, looks.sayaOrigin, root.CFrame * sheathed * CFrame.new(0, 0, HALF - HAND_BACK), root, character, "Saya", SAYA_WIDEN)
+		-- The saya hangs on a part of its own (like the blade, owned by the player's client), so the draw
+		-- animation can lift it off the hip (Weapon.luau). It starts on the hip, in the sheathed blade's pose.
+		local sayaModel = Instance.new("Model")
+		local sayaBody = Instance.new("Part")
+		sayaBody.Name = "SayaBody"
+		sayaBody.Size = Vector3.new(0.2, 0.2, 0.2)
+		sayaBody.Transparency = 1
+		sayaBody.CanCollide = false
+		sayaBody.CanQuery = false
+		sayaBody.CanTouch = false
+		sayaBody.Massless = true
+		sayaBody.CFrame = root.CFrame * CFrame.lookAt(Config.SheathePosition, Config.SheathePosition + Config.SheatheDirection.Unit)
+		sayaBody.Parent = sayaModel
+
+		local sayaAttachment = Instance.new("Attachment")
+		sayaAttachment.Name = "SayaCenter"
+		sayaAttachment.Parent = sayaBody
+
+		local sayaPosition = Instance.new("AlignPosition")
+		sayaPosition.Name = "SayaPosition"
+		sayaPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
+		sayaPosition.Attachment0 = sayaAttachment
+		sayaPosition.Position = sayaBody.Position
+		sayaPosition.Responsiveness = Config.WeaponResponsiveness
+		sayaPosition.MaxForce = 1e5
+		sayaPosition.Parent = sayaBody
+
+		local sayaOrientation = Instance.new("AlignOrientation")
+		sayaOrientation.Name = "SayaOrientation"
+		sayaOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+		sayaOrientation.Attachment0 = sayaAttachment
+		sayaOrientation.CFrame = sayaBody.CFrame
+		sayaOrientation.Responsiveness = Config.WeaponResponsiveness
+		sayaOrientation.MaxTorque = 1e6
+		sayaOrientation.Parent = sayaBody
+
+		dress(looks.saya, looks.sayaOrigin, sayaBody.CFrame * CFrame.new(0, 0, HALF - HAND_BACK), sayaBody, character, "Saya", SAYA_WIDEN, sayaModel)
+		sayaBody:SetNetworkOwner(player)
 	end
 end
 

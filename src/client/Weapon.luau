@@ -380,65 +380,55 @@ local function bladeTarget(character, root)
 end
 
 -- Draw / sheathe animation. `p` is the draw progress: 0 = sheathed, 1 = ready (p = 1 - sheatheBlend), and
--- sheathing is the same path run backwards. The right hand holds the katana's hilt, the left hand holds the saya:
---   0 .. P_REACH     the hands come up from the sides to the hilt (right) and the saya (left)
---   P_REACH .. P_PULL the right hand pulls the katana straight out of the saya (Config.DrawPullDistance)
---   P_PULL .. 1       the right hand swings the katana up and over the head in a rainbow arc and down to the
---                     ready pose (the left hand lets go of the saya for the last part, P_LEFT .. 1, and joins the grip)
-local P_REACH, P_PULL, P_LEFT = 0.15, 0.4, 0.8
+-- sheathing is the same path run backwards. Both hands lift the whole sheathed sword from the hip to above the
+-- head (blade still inside the saya, held level, hilt toward the right), then:
+--   0 .. P_REACH       the hands come up from the sides to the hilt (right) and the saya (left); the sword is on the hip
+--   P_REACH .. P_LIFT  both hands lift the sword over the head, level, the hilt toward the right
+--   P_LIFT .. P_PULL   the right hand pulls the katana out of the saya (Config.DrawPullDistance), sideways to the
+--                      right, while the left hand keeps the saya still above the head
+--   P_PULL .. 1        the right hand brings the katana down to the ready pose; the left hand lowers the saya back
+--                      to the hip (done at P_SAYA), lets go and joins the grip
+-- The saya is a part of its own (SayaBody, made in BladeService) that this client moves like the blade.
+local P_REACH, P_LIFT, P_PULL, P_SAYA = 0.1, 0.4, 0.65, 0.85
 
 local function smoothstep01(x)
 	x = math.clamp(x, 0, 1)
 	return x * x * (3 - 2 * x)
 end
 
--- Sheathed base of the blade (where the right hand holds the hilt), and the saya point the left hand holds.
-local function hiltPoint(root)
-	local sheatheDir = root.CFrame:VectorToWorldSpace(Config.SheatheDirection.Unit)
-	return root.CFrame * Config.SheathePosition - sheatheDir * HALF, sheatheDir
+-- Frames are the blade's own frame: origin at the blade's center, -Z toward the tip, Y up.
+-- Where the sheathed sword sits on the hip.
+local function hipFrame(root)
+	local center = Config.SheathePosition
+	return root.CFrame * CFrame.lookAt(center, center + Config.SheatheDirection.Unit)
 end
 
-local function sayaHold(root)
-	local hilt, sheatheDir = hiltPoint(root)
-	return hilt + sheatheDir * Config.DrawSayaGrip
+-- Where the sheathed sword is held above the head: level, tip toward the left, hilt toward the right.
+local function overheadFrame(root)
+	local center = Config.DrawOverheadPoint
+	return root.CFrame * CFrame.lookAt(center, center + Config.DrawOverheadDirection.Unit)
 end
 
--- The blade's base, direction and roll ("up") at draw progress p. readyBase / readyDir: the ready pose.
-local function drawPose(root, p, readyBase, readyDir)
-	local cf = root.CFrame
-	local hilt, sheatheDir = hiltPoint(root)
-	local pulled = hilt - sheatheDir * Config.DrawPullDistance
+-- The saya (with the blade inside it) at draw progress p.
+local function sayaFrameAt(root, p)
+	local lift = smoothstep01((p - P_REACH) / (P_LIFT - P_REACH))
+	local lower = smoothstep01((p - P_PULL) / (P_SAYA - P_PULL))
+	return hipFrame(root):Lerp(overheadFrame(root), lift * (1 - lower))
+end
+
+-- The blade at draw progress p. `readyFrame` is the ready pose (from bladeTarget).
+local function bladeFrameAt(root, p, readyFrame)
 	if p <= P_PULL then
-		local e = smoothstep01((p - P_REACH) / (P_PULL - P_REACH))
-		return hilt:Lerp(pulled, e), sheatheDir, Vector3.yAxis
+		local pull = smoothstep01((p - P_LIFT) / (P_PULL - P_LIFT))
+		return sayaFrameAt(root, p) * CFrame.new(0, 0, Config.DrawPullDistance * pull)
 	end
+	local pulled = overheadFrame(root) * CFrame.new(0, 0, Config.DrawPullDistance)
+	return pulled:Lerp(readyFrame, smoothstep01((p - P_PULL) / (1 - P_PULL)))
+end
 
-	local e = smoothstep01((p - P_PULL) / (1 - P_PULL))
-
-	-- The base follows a curve from `pulled` through the overhead point (at e = 0.5) to the ready grip.
-	local top = cf * Config.DrawOverheadPoint
-	local control = top * 2 - (pulled + readyBase) * 0.5
-	local base = pulled * ((1 - e) * (1 - e)) + control * (2 * e * (1 - e)) + readyBase * (e * e)
-
-	-- The tip swings back, up and over the head: the angle (in the body's up/forward plane) runs the long way round.
-	local d0 = cf:VectorToObjectSpace(sheatheDir)
-	local d1 = cf:VectorToObjectSpace(readyDir)
-	local phi0 = math.atan2(d0.Y, -d0.Z)
-	local phi1 = math.atan2(d1.Y, -d1.Z)
-	while phi1 > phi0 do
-		phi1 -= 2 * math.pi
-	end
-	local phi = phi0 + (phi1 - phi0) * e
-	local local_ = Vector3.new(d0.X + (d1.X - d0.X) * e, math.sin(phi), -math.cos(phi))
-	local dir = cf:VectorToWorldSpace(local_.Unit)
-
-	-- The roll turns half a turn about the blade over the arc, from the roll the sheathed blade has to the ready roll.
-	local across = cf.RightVector:Cross(dir)
-	local up = Vector3.yAxis
-	if across.Magnitude > 0.05 then
-		up = CFrame.fromAxisAngle(dir, math.pi * (1 - e)):VectorToWorldSpace(across.Unit)
-	end
-	return base, dir, up
+-- The point of the saya the left hand holds, given the saya's frame.
+local function sayaHold(frame)
+	return (frame * CFrame.new(0, 0, HALF - Config.DrawSayaGrip)).Position
 end
 
 -- Sets the server-made blade's targets, so the owning client moves it there.
@@ -451,13 +441,14 @@ local function driveBlade(character, root)
 	local center, dir = bladeTarget(character, root)
 	if not center then return end
 
-	-- Drawing / sheathing: the blade follows the draw path (see drawPose) between the ready pose and the left hip.
+	-- Drawing / sheathing: the blade follows the draw path (see bladeFrameAt) between the ready pose and the hip.
 	local up = nil
 	if sheatheBlend > 0 then
-		local base, bladeDir, bladeUp = drawPose(root, 1 - sheatheBlend, center - dir * HALF, dir)
-		dir = bladeDir
-		center = base + dir * HALF
-		up = bladeUp
+		local readyUp = if math.abs(dir.Y) > 0.99 then Vector3.zAxis else Vector3.yAxis
+		local frame = bladeFrameAt(root, 1 - sheatheBlend, CFrame.lookAt(center, center + dir, readyUp))
+		center = frame.Position
+		dir = frame.LookVector
+		up = frame.UpVector
 	end
 
 	-- Quick-draw slash: the blade sweeps through an arc in front of the body, ending the swing in
@@ -753,6 +744,39 @@ local function pinBladeToHip(character, root, pinned)
 	bladePinned = pinned
 end
 
+-- The saya's body (a part the server makes and this client owns, like the blade): on the hip it is pinned
+-- (constraints off, placed each frame after the character has moved); during the draw it chases the lifted pose.
+local function sayaBodyOf(character)
+	local saya = character:FindFirstChild("Saya")
+	return saya and saya:FindFirstChild("SayaBody")
+end
+
+local function placeSaya(character, root)
+	local body = sayaBodyOf(character)
+	local position = body and body:FindFirstChild("SayaPosition")
+	local orientation = body and body:FindFirstChild("SayaOrientation")
+	if not (position and orientation) then return end
+
+	local p = 1 - sheatheBlend
+	local frame = sayaFrameAt(root, p)
+	if p <= P_REACH or p >= P_SAYA then
+		if position.Enabled then
+			position.Enabled = false
+			orientation.Enabled = false
+		end
+		body.CFrame = frame
+		body.AssemblyLinearVelocity = Vector3.zero
+		body.AssemblyAngularVelocity = Vector3.zero
+	else
+		if not position.Enabled then
+			position.Enabled = true
+			orientation.Enabled = true
+		end
+		position.Position = frame.Position
+		orientation.CFrame = frame
+	end
+end
+
 -- Every frame, after the animator: both hands on the blade.
 local function poseHands()
 	local character = player.Character
@@ -762,6 +786,8 @@ local function poseHands()
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not (root and humanoid and humanoid.Health > 0) then return end
 	if not character:FindFirstChild("Right Arm") then return end
+
+	placeSaya(character, root)
 
 	-- Blade fully sheathed: the default animation takes over the whole body.
 	if Weapon.isDefaultMode() then
@@ -809,7 +835,7 @@ local function poseHands()
 		grip = root.CFrame * Config.WeaponGripTarget
 	end
 
-	-- Drawing / sheathing (see drawPose): the hands come up from hanging at the sides (arms at rest length,
+	-- Drawing / sheathing (see bladeFrameAt): the hands come up from hanging at the sides (arms at rest length,
 	-- pointing straight down) to the hilt and the saya, and go back the same way.
 	local p = 1 - sheatheBlend
 	local reach = smoothstep01(p / P_REACH)
@@ -826,10 +852,11 @@ local function poseHands()
 
 	local rightHand = poseArm(character, "Right", blended(grip, "Right"), look, stretch)
 	if rightHand then
-		-- The left hand holds the saya until late in the draw, then joins the grip.
+		-- The left hand holds the saya until it is back on the hip, then joins the grip.
 		local leftTarget = rightHand + dir * Config.WeaponHandSpacing
-		if sheatheBlend > 0 then
-			leftTarget = sayaHold(root):Lerp(leftTarget, smoothstep01((p - P_LEFT) / (1 - P_LEFT)))
+		local sayaBody = sheatheBlend > 0 and sayaBodyOf(character)
+		if sayaBody then
+			leftTarget = sayaHold(sayaBody.CFrame):Lerp(leftTarget, smoothstep01((p - P_SAYA) / (1 - P_SAYA)))
 		end
 		poseArm(character, "Left", blended(leftTarget, "Left"), look, stretch)
 	else
